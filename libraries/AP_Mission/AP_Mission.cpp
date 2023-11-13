@@ -78,6 +78,7 @@ void AP_Mission::start()
 {
     // ABZ
     GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Mission started.");
+    gcs().send_message(MSG_ABZ_MESSAGE_ID1500);   // in progress
 
     _flags.state = MISSION_RUNNING;
 
@@ -1733,6 +1734,10 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
         packet.param4 = cmd.content.gimbal_manager_pitchyaw.yaw_rate_degs;
         packet.x = cmd.content.gimbal_manager_pitchyaw.flags;
         packet.z = cmd.content.gimbal_manager_pitchyaw.gimbal_id;
+        break;
+
+    case ABZ_MESSAGE_VALUE_ONE:         // "ABZ" ID: 1 (if needed)
+        packet.param1 = cmd.p1;
         break;
 
     default:
