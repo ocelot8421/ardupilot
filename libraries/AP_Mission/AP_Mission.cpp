@@ -6,6 +6,12 @@
 #include <GCS_MAVLink/GCS.h>
 #include <AP_AHRS/AP_AHRS.h>
 
+// ABZ interview
+#include <iostream>
+#include <ctime>
+#include <ratio>
+#include <chrono>
+
 const AP_Param::GroupInfo AP_Mission::var_info[] = {
 
     // @Param: TOTAL
@@ -70,6 +76,9 @@ void AP_Mission::init()
 ///     To-Do: should we validate the mission first and return true/false?
 void AP_Mission::start()
 {
+    // ABZ
+    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Mission started.");
+
     _flags.state = MISSION_RUNNING;
 
     reset(); // reset mission to the first command, resets jump tracking
@@ -84,6 +93,9 @@ void AP_Mission::start()
 /// stop - stops mission execution.  subsequent calls to update() will have no effect until the mission is started or resumed
 void AP_Mission::stop()
 {
+    // ABZ
+    GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Mission stopped.");
+
     _flags.state = MISSION_STOPPED;
 }
 
@@ -268,11 +280,22 @@ void AP_Mission::truncate(uint16_t index)
 
 /// update - ensures the command queues are loaded with the next command and calls main programs command_init and command_verify functions to progress the mission
 ///     should be called at 10hz or higher
+static uint32_t timer0= AP_HAL::millis();     // ABZ
+static uint32_t timer1 = AP_HAL::millis();     // ABZ
+
 void AP_Mission::update()
 {
     // exit immediately if not running or no mission commands
     if (_flags.state != MISSION_RUNNING || _cmd_total == 0) {
+        gcs().send_text(MAV_SEVERITY_NOTICE, "There is no mission");
         return;
+    }
+
+    // ABZ -- mission update per every second
+    timer1 = AP_HAL::millis();
+    if ((timer1 - timer0) / 600 > 1) {
+        gcs().send_text(MAV_SEVERITY_INFO, "Mission: %u %s", _nav_cmd.index, _nav_cmd.type());
+        timer0 = AP_HAL::millis();
     }
 
     update_exit_position();
@@ -346,7 +369,7 @@ bool AP_Mission::start_command(const Mission_Command& cmd)
     } else if (is_takeoff_type_cmd(cmd.id)) {
         set_in_landing_sequence_flag(false);
     }
-
+    
     gcs().send_text(MAV_SEVERITY_INFO, "Mission: %u %s", cmd.index, cmd.type());
     switch (cmd.id) {
     case MAV_CMD_DO_AUX_FUNCTION:
@@ -2555,7 +2578,7 @@ bool AP_Mission::calc_rewind_pos(Mission_Command& rewind_cmd)
         // calculate distance
         float disttemp = prev_loc.get_distance(temp_cmd.content.location); //(m)
         rewind_distance -= disttemp;
-        resume_index = i;
+        resume_index = i;            
 
         if (rewind_distance <= 0.0f) {
             // history rewound enough distance to meet _repeat_dist requirement

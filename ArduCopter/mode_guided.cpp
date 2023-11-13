@@ -1,3 +1,5 @@
+// ABZ interview
+#include <GCS_MAVLink/GCS.h>
 #include "Copter.h"
 
 #if MODE_GUIDED_ENABLED == ENABLED
@@ -63,6 +65,7 @@ void ModeGuided::run()
     case SubMode::TakeOff:
         // run takeoff controller
         takeoff_run();
+
         break;
 
     case SubMode::WP:
@@ -72,6 +75,7 @@ void ModeGuided::run()
             send_notification = false;
             gcs().send_mission_item_reached_message(0);
         }
+
         break;
 
     case SubMode::Pos:
