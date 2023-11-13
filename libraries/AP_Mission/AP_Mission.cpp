@@ -78,7 +78,7 @@ void AP_Mission::start()
 {
     // ABZ
     GCS_SEND_TEXT(MAV_SEVERITY_NOTICE, "Mission started.");
-    gcs().send_message(MSG_ABZ_MESSAGE_ID1500);   // in progress
+    //gcs().send_message(MSG_ABZ_MESSAGE_ID1500);   // in progress
 
     _flags.state = MISSION_RUNNING;
 
