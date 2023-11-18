@@ -601,6 +601,11 @@ void Copter::three_hz_loop()
 }
 
 // one_hz_loop - runs at 1Hz
+
+// ABZ interview - task1 correction
+
+// get_current_nav_cmd();
+
 void Copter::one_hz_loop()
 {
     if (should_log(MASK_LOG_ANY)) {
@@ -630,6 +635,17 @@ void Copter::one_hz_loop()
 #endif
 
     AP_Notify::flags.flying = !ap.land_complete;
+
+    // ABZ interview - task1 correction
+    AP_Mission *mission = AP::mission();
+        if (mission){
+            AP_Mission::Mission_Command cmd_current = mission->get_current_nav_cmd();
+            if (cmd_current.id){
+                gcs().send_text(MAV_SEVERITY_INFO, "Mission: %u %d %s", cmd_current.index, cmd_current.id, cmd_current.type());
+            } else {
+                gcs().send_text(MAV_SEVERITY_INFO, "There is no mission coúmmand.");
+            }
+        }
 }
 
 void Copter::init_simple_bearing()
