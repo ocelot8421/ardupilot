@@ -630,6 +630,22 @@ void Copter::one_hz_loop()
 #endif
 
     AP_Notify::flags.flying = !ap.land_complete;
+
+    mission_feedback(); // ABZ interview - task1 correction
+}
+
+// Prints feedback in every second to the GCS console about what is the state of the current mission. (ABZ - task1 correction)
+void Copter::mission_feedback()
+{
+    AP_Mission *mission = AP::mission();
+        if (mission){
+            AP_Mission::Mission_Command cmd_current = mission->get_current_nav_cmd();
+            if (cmd_current.id){
+                gcs().send_text(MAV_SEVERITY_INFO, "Mission: %u %s", cmd_current.index, cmd_current.type());
+            } else {
+                gcs().send_text(MAV_SEVERITY_INFO, "There is no active mission.");
+            }
+        }
 }
 
 void Copter::init_simple_bearing()
