@@ -17,6 +17,9 @@ To create a new MAVLink message, it must be implemented in ardupilotmega.xml (lo
 ### Sending new mavlink message
 The "waiting_to_start" flag indicates whether a mission has already started. It is declared in mode.h and defined in mode_auto::init() initially. In the run() function, if waiting_to_start is true, we can be sure that we are before the mission and can call send_message(MSG_ABZ_ID1500). Ensure to add the message into the enum ap_message and include it as a switch case condition in GCS_MAVLINK_Copter::try_send_message(enum ap_message id).
 
+![No mission state](abz_doc_pic1.JPG)
+![Durring mission](abz_doc_pic2.jpg)
+
 ## Note
 \* Make sure that the repository is in the same filesystem as WSL (if used) for optimal build performance. <br>
 The WSL path on Win10 is: <br>
