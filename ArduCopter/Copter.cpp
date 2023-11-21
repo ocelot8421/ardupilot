@@ -640,10 +640,10 @@ void Copter::mission_feedback()
     AP_Mission *mission = AP::mission();
         if (mission){
             AP_Mission::Mission_Command cmd_current = mission->get_current_nav_cmd();
-            if (cmd_current.id){
+            if (cmd_current.id != 0){
                 gcs().send_text(MAV_SEVERITY_INFO, "Mission: %u %s", cmd_current.index, cmd_current.type());
             } else {
-                gcs().send_text(MAV_SEVERITY_INFO, "There is no active mission.");
+                gcs().send_text(MAV_SEVERITY_INFO, "There is no mission.");
             }
         }
 }
