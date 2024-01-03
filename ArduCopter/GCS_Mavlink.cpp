@@ -368,6 +368,10 @@ bool GCS_MAVLINK_Copter::try_send_message(enum ap_message id)
         break;
     }
 
+    case MSG_ABZ_ID1500:
+        mavlink_msg_msg_abz_id1500_send(chan,ABZ_ENTRY); // Sends custom mavlink message(command) within 1 value of param1. (ABZ, task2)
+        break;
+
     default:
         return GCS_MAVLINK::try_send_message(id);
     }

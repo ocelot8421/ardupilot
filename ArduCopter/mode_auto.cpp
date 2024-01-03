@@ -89,6 +89,8 @@ void ModeAuto::run()
             // start/resume the mission (based on MIS_RESTART parameter)
             mission.start_or_resume();
             waiting_to_start = false;
+            gcs().send_message(MSG_ABZ_ID1500);
+
 
             // initialise mission change check (ignore results)
             IGNORE_RETURN(mis_change_detector.check_for_mission_change());
