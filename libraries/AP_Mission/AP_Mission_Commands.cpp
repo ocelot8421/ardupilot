@@ -251,3 +251,38 @@ bool AP_Mission::start_command_do_gimbal_manager_pitchyaw(const AP_Mission::Miss
     return false;
 #endif // HAL_MOUNT_ENABLED
 }
+
+bool AP_Mission::start_command_abz_sprayer(const AP_Mission::Mission_Command& cmd)
+{
+//ABZ::get_singleton();
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+    if (sprayer == nullptr) {
+        return false;
+    }
+    
+    if((bool)cmd.p1)
+    {
+       // gcs().send_text(MAV_SEVERITY_INFO,"most inditom a számolást");
+        //std::chrono::_V2::system_clock::time_point now=high_resolution_clock::now();
+        
+        sprayer->start_time=AP_HAL::millis();
+       // sprayer->send_tank_is_empty=true;
+        //sprayer->now=2*CLOCKS_PER_SEC;
+    }
+    
+   /* gcs().send_text(MAV_SEVERITY_INFO,"cmd spinner %f",cmd.content.sprayer.spinnerpwm  );
+    gcs().send_text(MAV_SEVERITY_INFO,"cmd coverage %f",cmd.content.sprayer.coverage  );
+    gcs().send_text(MAV_SEVERITY_INFO,"cmd spacing %f",cmd.content.sprayer.spacing  );*/
+    sprayer->set_Calculating_Values_command(cmd);
+    sprayer->run_mission(cmd.p1);
+    gcs().send_message(MSG_ABZ_IS_SPRAYING);
+   /* if (cmd.p1 == 1) {
+        sprayer->run(true);
+    } else {
+        sprayer->run(false);
+    }*/
+
+    return true;
+
+}
+

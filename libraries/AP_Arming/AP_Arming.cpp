@@ -166,18 +166,24 @@ AP_Arming::AP_Arming()
 void AP_Arming::update(void)
 {
     const uint32_t now_ms = AP_HAL::millis();
+    
     // perform pre-arm checks & display failures every 30 seconds
     bool display_fail = false;
     if (now_ms - last_prearm_display_ms > PREARM_DISPLAY_PERIOD*1000) {
         display_fail = true;
         last_prearm_display_ms = now_ms;
+        
     }
     // OTOH, the user may never want to display them:
     if (option_enabled(Option::DISABLE_PREARM_DISPLAY)) {
         display_fail = false;
     }
-
+    
     pre_arm_checks(display_fail);
+
+
+    
+    
 }
 
 uint16_t AP_Arming::compass_magfield_expected() const

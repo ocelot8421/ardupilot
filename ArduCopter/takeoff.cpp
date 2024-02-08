@@ -17,7 +17,21 @@ Vector3p Mode::auto_takeoff_complete_pos;
 
 bool Mode::do_user_takeoff_start(float takeoff_alt_cm)
 {
+    ABZ_Sprayer * sprayer = ABZ::get_singleton();
+    if (sprayer == nullptr) {
+        return false;
+    }
+    /*
+    gcs().send_text(MAV_SEVERITY_INFO, "user customliter: %f",sprayer->getCustomTartaly());
+    
+    if(sprayer->getCustomTartaly() > 0.0){
+        sprayer->tartaly_liter=sprayer->getCustomTartaly();
+    }else{
+        sprayer->tartaly_liter=10;
+    }
+
     copter.flightmode->takeoff.start(takeoff_alt_cm);
+    */
     return true;
 }
 
@@ -56,7 +70,9 @@ bool Mode::do_user_takeoff(float takeoff_alt_cm, bool must_navigate)
 
 // start takeoff to specified altitude above home in centimeters
 void Mode::_TakeOff::start(float alt_cm)
-{
+{   
+
+
     // initialise takeoff state
     _running = true;
     take_off_start_alt = copter.pos_control->get_pos_target_z_cm();
@@ -234,6 +250,16 @@ void Mode::auto_takeoff_run()
 
 void Mode::auto_takeoff_start(float complete_alt_cm, bool terrain_alt)
 {
+    //ABZ_Sprayer * sprayer = ABZ::get_singleton();
+
+    //gcs().send_text(MAV_SEVERITY_INFO, "autos customliter: %f",sprayer->getCustomTartaly());
+    /*
+    if(sprayer->getCustomTartaly() > 0.0){
+        sprayer->tartaly_liter=sprayer->getCustomTartaly();
+    }else{
+        sprayer->tartaly_liter=10;
+    }
+    */
     auto_takeoff_start_alt_cm = inertial_nav.get_position_z_up_cm();
     auto_takeoff_complete_alt_cm = complete_alt_cm;
     auto_takeoff_terrain_alt = terrain_alt;

@@ -26,13 +26,13 @@
    should define ALLOW_DOUBLE_TRIG_FUNCTIONS before including
    AP_Math.h
 */
-#define sin(x) DO_NOT_USE_DOUBLE_MATHS()
-#define cos(x) DO_NOT_USE_DOUBLE_MATHS()
+
+
 #define tan(x) DO_NOT_USE_DOUBLE_MATHS()
 #define acos(x) DO_NOT_USE_DOUBLE_MATHS()
-#define asin(x) DO_NOT_USE_DOUBLE_MATHS()
+
 #define atan(x) DO_NOT_USE_DOUBLE_MATHS()
-#define atan2(x,y) DO_NOT_USE_DOUBLE_MATHS()
+
 #define exp(x) DO_NOT_USE_DOUBLE_MATHS()
 #define pow(x,y) DO_NOT_USE_DOUBLE_MATHS()
 #define sqrt(x) DO_NOT_USE_DOUBLE_MATHS()

@@ -61,10 +61,12 @@ void ModeGuided::run()
     switch (guided_mode) {
 
     case SubMode::TakeOff:
-        // run takeoff controller
+    {
         takeoff_run();
+        // run takeoff controller
+        
         break;
-
+    }
     case SubMode::WP:
         // run waypoint controller
         wp_control_run();

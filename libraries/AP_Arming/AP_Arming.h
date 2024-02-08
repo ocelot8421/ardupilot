@@ -268,7 +268,9 @@ private:
     // vehicle has been disarmed at least once.
     Method _last_disarm_method = Method::UNKNOWN;
 
-    uint32_t last_prearm_display_ms;  // last time we send statustexts for prearm failures
+    uint32_t last_prearm_display_ms; 
+    uint32_t last_prearm_display_ms2; // last time we send statustexts for prearm failures
+    uint32_t num_message = 60000;
     bool running_arming_checks;  // true if the arming checks currently being performed are being done because the vehicle is trying to arm the vehicle
 };
 

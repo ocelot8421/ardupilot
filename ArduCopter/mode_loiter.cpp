@@ -119,7 +119,7 @@ void ModeLoiter::run()
 
     // Loiter State Machine Determination
     AltHoldModeState loiter_state = get_alt_hold_state(target_climb_rate);
-
+   // copter.surface_tracking.update_surface_offset();
     // Loiter State Machine
     switch (loiter_state) {
 

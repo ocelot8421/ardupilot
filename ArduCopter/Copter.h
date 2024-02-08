@@ -273,7 +273,7 @@ private:
         // update_surface_offset - manages the vertical offset of the position controller to follow the
         //   measured ground or ceiling level measured using the range finder.
         void update_surface_offset();
-
+        void update_surface_offset2();
         // get/set target altitude (in cm) above ground
         bool get_target_alt_cm(float &target_alt_cm) const;
         void set_target_alt_cm(float target_alt_cm);
@@ -282,7 +282,7 @@ private:
         bool get_target_dist_for_logging(float &target_dist) const;
         float get_dist_for_logging() const;
         void invalidate_for_logging() { valid_for_logging = false; }
-
+       
         // surface tracking surface
         enum class Surface {
             NONE = 0,
@@ -526,7 +526,7 @@ private:
 #if AP_TERRAIN_AVAILABLE
     AP_Terrain terrain;
 #endif
-
+ABZ_Sprayer  abz_sprayer; 
     // Precision Landing
 #if PRECISION_LANDING == ENABLED
     AC_PrecLand precland;
@@ -555,6 +555,7 @@ private:
     // Top-level logic
     // setup the var_info table
     AP_Param param_loader;
+    
 
 #if FRAME_CONFIG == HELI_FRAME
     // Mode filter to reject RC Input glitches.  Filter size is 5, and it draws the 4th element, so it can reject 3 low glitches,

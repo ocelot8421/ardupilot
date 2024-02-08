@@ -7,7 +7,7 @@ class AP_Arming_Copter : public AP_Arming
 public:
     friend class Copter;
     friend class ToyMode;
-
+    uint32_t last_prearm_display_ms2;
     AP_Arming_Copter() : AP_Arming()
     {
         // default REQUIRE parameter to 1 (Copter does not have an

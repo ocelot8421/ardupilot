@@ -87,6 +87,7 @@ void ModeRTL::run(bool disarm_on_land)
             // do nothing
             break;
         case SubMode::LAND:
+            //gcs().send_text(MAV_SEVERITY_INFO, "leszáll");
             // do nothing - rtl_land_run will take care of disarming motors
             break;
         }
@@ -359,7 +360,9 @@ void ModeRTL::land_start()
 {
     _state = SubMode::LAND;
     _state_complete = false;
-
+    //gcs().send_text(MAV_SEVERITY_INFO, "landing");
+    // if we recieved custom capacity let's set it
+    
     // set horizontal speed and acceleration limits
     pos_control->set_max_speed_accel_xy(wp_nav->get_default_speed_xy(), wp_nav->get_wp_acceleration());
     pos_control->set_correction_speed_accel_xy(wp_nav->get_default_speed_xy(), wp_nav->get_wp_acceleration());
@@ -390,6 +393,7 @@ void ModeRTL::land_start()
 
 bool ModeRTL::is_landing() const
 {
+    
     return _state == SubMode::LAND;
 }
 
@@ -399,6 +403,7 @@ void ModeRTL::land_run(bool disarm_on_land)
 {
     // check if we've completed this stage of RTL
     _state_complete = copter.ap.land_complete;
+
 
     // disarm when the landing detector says we've landed
     if (disarm_on_land && copter.ap.land_complete && motors->get_spool_state() == AP_Motors::SpoolState::GROUND_IDLE) {

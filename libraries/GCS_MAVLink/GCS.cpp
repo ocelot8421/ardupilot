@@ -19,7 +19,7 @@
 
 extern const AP_HAL::HAL& hal;
 
-// if this assert fails then fix it and the comment in GCS.h where
+// if this assert fails then fix it and the comment in GCS.h whe
 // _statustext_queue is declared
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
 assert_storage_size<GCS::statustext_t, 58> _assert_statustext_t_size;
@@ -354,3 +354,509 @@ void gcs_out_of_space_to_send(mavlink_channel_t chan)
 {
     gcs().chan(chan)->out_of_space_to_send();
 }
+
+
+#include <AP_AHRS/AP_AHRS.h>
+#include <AP_HAL/AP_HAL.h>
+#include <AP_Math/AP_Math.h>
+#include <SRV_Channel/SRV_Channel.h>
+
+extern const AP_HAL::HAL& hal;
+
+// ------------------------------
+/**
+ * @brief Parameters avaible in the settings menu at QGC. Use GroupInfo to group them into abz
+*/
+const AP_Param::GroupInfo ABZ_Sprayer::var_info[] = {
+    // @Param: PWM_A
+    // @DisplayName: PWM A param
+    // @Description: PWM equation A param
+    // @Units: s
+    // @Range: -10000 10000
+    // @User: Standard
+    AP_GROUPINFO("PWM_A",   0, ABZ_Sprayer, pwm_a, ABZ_SPRAYER_DEFAULT_A),
+    
+    // @Param: PWM_B
+    // @DisplayName: PWM A param
+    // @Description: PWM equation A param
+    // @Units: s
+    // @Range: -10000 10000
+    // @User: Standard
+    AP_GROUPINFO("PWM_B",  1, ABZ_Sprayer, pwm_b, ABZ_SPRAYER_DEFAULT_B),
+    
+    // @Param: PWM_C
+    // @DisplayName: PWM C param
+    // @Description: PWM equation C param
+    // @Units: s
+    // @Range: -10000 10000
+    // @User: Standard
+    AP_GROUPINFO("PWM_C",   2, ABZ_Sprayer, pwm_c, ABZ_SPRAYER_DEFAULT_C),
+
+    // @Param: L_NEED
+    // @DisplayName: Needed liters
+    // @Description: Needed liters for the entire mission given from QGC
+    // @Units: s
+    // @Range: -10000 10000
+    // @User: Standard
+    AP_GROUPINFO("L_NEED",   3, ABZ_Sprayer, L_Need, ABZ_SPRAYER_DEFAULT_LN),
+
+    // @Param: T_SPRAYED
+    // @DisplayName: Total Sprayed
+    // @Description: Total Sprayed fluid during the entire mission
+    // @Units: s
+    // @Range: -10000 10000
+    // @User: Standard
+    AP_GROUPINFO("T_SPRAYED",   4, ABZ_Sprayer, T_sprayed, ABZ_SPRAYER_DEFAULT_TS),
+
+    // @Param: FLIGHT_MOD
+    // @DisplayName: Flight  Mod
+    // @Description: set flight mod
+    // @User: Standard
+    AP_GROUPINFO("FLIGHT_MOD",   5, ABZ_Sprayer, F_MOD, ABZ_SPRAYER_FLIGHT_MOD),
+
+    // @Param: FIRM_VERSION
+    // @DisplayName: Firmware version
+    // @Description: the actual version of the firmware
+    // @User: Standard
+    // @ReadOnly: True
+    AP_GROUPINFO("Firm_VERSION",6, ABZ_Sprayer, firm_version, ABZ_SPRAYER_FIRM_VERSION),
+
+    // @Param: LITERS_LEFT
+    // @DisplayName: Liters left
+    // @Description: liters left in the tank
+    // @User: Standard
+    // @ReadOnly: True
+    AP_GROUPINFO("LITERS_LEFT",7, ABZ_Sprayer, liters_left, 10.0),
+
+    // @Param: START_PWM
+    // @DisplayName: Start PWM
+    // @Description: PWM used at spraying start.
+    // @User: Standard
+    AP_GROUPINFO("START_PWM",8, ABZ_Sprayer, start_pwm, ABZ_SPRAYER_DEFAULT_START_PWM ),
+
+    // @Param: START_PWM_S
+    // @DisplayName: Start PWM SEC
+    // @Description: Time in sec of higher pwm at spraying start
+    // @User: Standard
+    AP_GROUPINFO("START_PWM_S",9, ABZ_Sprayer, start_pwm_sec,ABZ_SPRAYER_DEFAULT_START_PWM_SEC),
+
+    // @Param: IS_START_PWM
+    // @DisplayName: IS Start PWM active
+    // @Description: Time in sec of higher pwm at spraying start
+    // @User: Standard
+    AP_GROUPINFO("IS_S_PWM",10, ABZ_Sprayer, is_start_pwm,0),
+
+    // @Param: DTYPE
+    // @DisplayName: Drone type
+    // @Description: Type of the drone. 1 is L10 2 is L30
+    // @User: Standard
+    AP_GROUPINFO("DTYPE",11, ABZ_Sprayer, drone_type,1),
+
+    AP_GROUPEND
+};
+/**Singelton for sprayer*/
+ABZ_Sprayer::ABZ_Sprayer()
+{
+    if(_singleton)
+    {
+        return;
+    }
+    _singleton = this;
+    
+    AP_Param::setup_object_defaults(this, var_info);
+
+    // check for silly parameter values
+    
+
+    // To-Do: ensure that the pump and spinner servo channels are enabled
+}
+/*
+ * Get the ABZ_Sprayer singleton
+ */
+ABZ_Sprayer *ABZ_Sprayer::_singleton;
+ABZ_Sprayer *ABZ_Sprayer::get_singleton()
+{
+    return _singleton;
+}
+/**
+ * @brief resets the dont_spray to its default
+ *  */
+void ABZ_Sprayer::resetDontSprayInMission()
+{
+    dont_spray=false;
+}
+/**
+ * @brief  sets the dont_spray to its oppoosite
+ *  */
+void ABZ_Sprayer::setDontSprayInMission()
+{
+    if(dont_spray)
+    {
+        dont_spray=false;
+    }
+    else
+    {
+        dont_spray=true;
+    }
+}
+/**
+ * @brief sets spraying_abz to True or False
+ * @param spraying  is  a bool type that sets the spraying_abz
+ *  */
+void ABZ_Sprayer::SetSpraying_speed_adaptive(bool spraying)
+{
+
+    spraying_abz=spraying;
+}
+/**
+ * @brief Runs the sprayer action.
+ *
+ * This function toggles the spraying state of the ABZ_Sprayer object.
+ * If spraying is currently active, it sends a message indicating that
+ * ABZ is spraying and then sets the spraying state to false. If spraying
+ * is not active, it checks the _testOrNot flag. If this flag is set to 1.0f,
+ * it sends a text message to the GCS (Ground Control Station) with an error.
+ * Otherwise, it sets the spraying state to true.
+ */
+void ABZ_Sprayer::run(){
+
+    if(spraying_abz){
+        gcs().send_message(MSG_ABZ_IS_SPRAYING);
+        spraying_abz=false;
+    }else{
+
+        if (is_equal(_testOrNot,1.0f)){
+             gcs().send_text(MAV_SEVERITY_INFO, "Problem in GCS at ABZ__Sprayer::run(): %d",spraying_abz);
+        }else{
+            spraying_abz=true;
+        }
+    }
+}
+/**
+ * @brief Controls the spraying action based on a given condition.
+ * 
+ * This function sets the spraying state according to the true_false argument.
+ * If _testOrNot is equal to 1.0f, it reports a problem to the GCS (Ground Control Station).
+ * If no problem is reported and spraying_abz is true, it marks the start time,
+ * sends a message to indicate that ABZ is spraying, and logs "Spraying ON".
+ * If spraying_abz is false, it simply logs "Spraying OFF".
+ *
+ * @param true_false A boolean flag to determine the spraying state; true to start spraying and false to stop.
+ * @see AP_Mission::start_command_abz_sprayer(const AP_Mission::Mission_Command& cmd) in AP_Mission_Commands.cpp
+ */
+void ABZ_Sprayer::run_mission(bool true_false){
+    
+    spraying_abz=true_false;
+
+    if (is_equal(_testOrNot,1.0f)){
+             gcs().send_text(MAV_SEVERITY_INFO, "Problem in GCS at ABZ__Sprayer::run_mission(): %d",spraying_abz);
+    }else{
+
+        if(spraying_abz){
+            start_time = AP_HAL::millis();
+            gcs().send_message(MSG_ABZ_IS_SPRAYING);
+            gcs().send_text(MAV_SEVERITY_INFO, "Spraying ON");
+        }else{
+            gcs().send_text(MAV_SEVERITY_INFO, "Spraying: OFF");
+        }
+
+    }
+
+}
+/**
+ * @brief Stops the spraying process.
+ *
+ * This function sets the spraying flag to false, effectively
+ * indicating that the ABZ_Sprayer should cease spraying operations.
+ */
+void ABZ_Sprayer::stop_spraying(){
+
+    _flags.spraying = false;
+}
+/**
+ * @brief sends the liter left message 
+ * called at 10hz and send the current amount of fluid in the tank
+ * 
+*/
+void ABZ_Sprayer::sendCapacity(){
+    gcs().send_message(MSG_ABZ_LITER_LEFT);
+}
+/**
+ * @brief Updates the sprayer state and controls the sprayer's PWM outputs based on current conditions and settings.
+ * 
+ * The function first checks if spraying is disabled by the 'dont_spray' flag. If not, it proceeds to check
+ * if the sprayer is in test mode (when '_testOrNot' is 1.0f). In test mode, the function will adjust the PWM
+ * values of the pump and spinner to ensure they are within the operational range and then update the outputs.
+ * 
+ * If not in test mode but spraying is active ('spraying_abz' is true), it calculates the sprayer output based on
+ * the current ground speed and sprayer configuration parameters such as spacing and coverage. It also updates the 
+ * total amount sprayed, coverage percentage, remaining fluid, and remaining time estimates. If the tank's fluid level 
+ * falls below a critical threshold, it sends a critical message and updates the relevant status message.
+ * 
+ * If spraying is not active, it resets the PWM values for both the pump and the spinner to their default idle state.
+ * 
+ * If 'dont_spray' is set to true, it ensures both the pump and spinner are set to idle regardless of other conditions.
+ * 
+ * If we start spraying for 1000 ms it send a high pwm signal.
+ */
+void ABZ_Sprayer::update(){
+    
+    if(!dont_spray){
+
+        if(is_equal(_testOrNot,1.0f)){
+
+            if(_testPumpPWM<1050){
+                _testPumpPWM=1050;
+            }
+
+            if(_testSpinnerPWM<1050){
+                _testSpinnerPWM=500;
+            }
+
+            if(_testPumpPWM>1900){
+                _testPumpPWM=1050;
+            }
+
+            if(_testSpinnerPWM>1900){
+                _testSpinnerPWM=1050;
+            }
+
+            SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_pump,_testPumpPWM);
+            SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_spinner,_testSpinnerPWM);
+            gcs().send_text(MAV_SEVERITY_ALERT, "_testPumpPWM: %f", _testPumpPWM); //hajni task#5
+            gcs().send_text(MAV_SEVERITY_ALERT, "_testSpinnerPWM: %f", _testSpinnerPWM); //hajni task#5
+            return;
+        }else if(spraying_abz){   
+
+            _testOrNot=0.0f;
+            Vector3f velocity; 
+            if (!AP::ahrs().get_velocity_NED(velocity)) {
+            // treat unknown velocity as zero which should lead to pump stopping
+            // velocity will already be zero but this avoids a coverity warning
+                velocity.zero();
+            }
+
+            float ground_speed = norm(velocity.x , velocity.y );
+
+            if(ground_speed<0.0001){
+
+                return;
+            }
+            
+            float how_many_second=_spacing*ground_speed;
+            how_many_second=10000/how_many_second;
+            
+            liter_per_second=_coverage/how_many_second;
+            float pwm;
+            //if we want to use different pwm at start 
+            if (is_start_pwm > 0){
+                //if we started to spray
+                if (start_pwm_time>0.0){
+                    //if the time lower then max time we use starting pwm else we calculate the pwm
+                    if ((AP_HAL::millis()-start_pwm_time)<static_cast<uint32_t>(start_pwm_sec*1000)){
+                        pwm = start_pwm;
+                    }else{
+                        //if drone is l10 els l30 or custom
+                        if(drone_type==1){
+                            //gcs().send_text(MAV_SEVERITY_INFO,"L10");
+                            pwm = (pwm_a*(liter_per_second*liter_per_second))+(pwm_b*liter_per_second)+pwm_c;
+                        }else{
+                            //gcs().send_text(MAV_SEVERITY_INFO,"L30");
+                            pwm = (pwm_a*(liter_per_second*liter_per_second))-(pwm_b*liter_per_second)+pwm_c; 
+                        }
+                    }
+                //if it is the start of the spraying we use starting pwm
+                }else{
+                    start_pwm_time = AP_HAL::millis();
+                    pwm = start_pwm;
+                }
+            //if different pwm at start is off we calculate the pwm
+            }else{
+                //if drone is l10 els l30 or custom
+                if(drone_type==1){
+                    //gcs().send_text(MAV_SEVERITY_INFO,"L10");
+                    pwm = (pwm_a*(liter_per_second*liter_per_second))+(pwm_b*liter_per_second)+pwm_c;
+                }else{
+                    //gcs().send_text(MAV_SEVERITY_INFO,"L30");
+                    pwm = (pwm_a*(liter_per_second*liter_per_second))-(pwm_b*liter_per_second)+pwm_c;
+                }
+
+            }
+            
+            if(1050<=pwm){
+
+                if(pwm<=1900){
+                    round_sprayed += liter_per_second/10;
+                    T_sprayed.set_and_save(T_sprayed+liter_per_second/10);
+                    coverage_percentage = (T_sprayed/L_Need)*100;
+                    remaining_fluid = L_Need-T_sprayed;
+                    remaining_starts = remaining_fluid/tartaly_liter;
+
+                    if((int)remaining_starts < remaining_starts){
+                        remaining_starts = (int)remaining_starts+1;
+                    }
+
+                    total_meter = total_meter-ground_speed/10;
+                    remaining_time = total_meter/max_speed;
+                    liter_left = tartaly_liter-round_sprayed;
+                    liters_left.set_and_save(liter_left);
+
+                    if(liter_left<0.20){   
+
+                        if(send_tank_is_empty){
+                            gcs().send_text(MAV_SEVERITY_CRITICAL,"Tank is empty!");
+                            gcs().send_message(MSG_ABZ_EMPTY_TANK_ACTION);
+                            send_tank_is_empty=false;
+                        }
+
+                    }
+
+                    gcs().send_message(MSG_ABZ_PLAN_PROGRESS);
+                    SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_pump,int(pwm));
+                    SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_spinner,int(_spinnerpwm));
+
+                }else{
+                    SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_pump,1050);
+                    SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_spinner,int(_spinnerpwm));
+                }
+            
+            
+            }
+        }else if(!spraying_abz){
+            start_pwm_time = 0.0;
+            SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_spinner,1050);
+            SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_pump,1050);
+            _testPumpPWM=0;
+            _testSpinnerPWM=0;
+        }
+
+    }else{
+        SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_spinner,1050);
+        SRV_Channels::set_output_pwm(SRV_Channel::k_sprayer_pump,1050);
+    }
+}
+/**
+ * @brief sets value from packet
+ * @param packet a short mav command
+*/
+void ABZ_Sprayer::set_Calculating_Values(const mavlink_mission_item_int_t& packet){
+    _coverage=packet.param2;
+    _spacing=packet.param3;
+    _spinnerpwm=packet.param4;
+}
+/**
+ * @brief sets value from packet
+ * @param packet a long mav command
+*/
+void ABZ_Sprayer::set_Calculating_Values (const mavlink_command_long_t &packet){
+    _coverage=packet.param2;
+    _spacing=packet.param3;
+    _spinnerpwm=packet.param4;
+    _testOrNot=packet.param5;
+    _testSpinnerPWM=packet.param6;
+    _testPumpPWM=packet.param7;
+}
+/**
+ * @brief sets value from command
+ * @param packet is a mission spraying command
+*/
+void ABZ_Sprayer::set_Calculating_Values_command(const AP_Mission::Mission_Command& cmd){
+    _coverage=cmd.content.sprayer.coverage;
+    _spacing=cmd.content.sprayer.spacing;
+    _spinnerpwm=cmd.content.sprayer.spinnerpwm*100;
+}
+/**
+ * @brief setting rtm related values
+ * If we use RTM wich returns to mission like RTL, we need  to set alt and speed and turn on the optioon
+ * @param rtm_value is rtm on or off
+ * @param rtm_value_alt is the returning altitude
+ * @param rtm_value_speed is the returning speed
+*/
+void ABZ_Sprayer::set_rtm_value(float rtm_value,float rtm_value_alt,float rtm_value_speed){
+   
+    if( is_equal(rtm_value,1.0f)){
+        return_to_mission_like_rtl=true;
+    }else{
+        return_to_mission_like_rtl=false;
+    }
+
+    return_to_mission_like_rtl_altitude=rtm_value_alt;
+    return_to_mission_like_rtl_speed=rtm_value_speed;
+}
+/**
+ * @brief setter for spacing
+ * @param spacing is float type the value we want  to set
+*/
+void ABZ_Sprayer::setSpacing(float spacing){
+    _spacing=spacing;
+}
+/**
+ * @brief setter for coverage
+ * @param coverage is float type the value we want  to set
+*/
+void ABZ_Sprayer::setCoverage(float coverage){
+    _coverage=coverage;
+}
+/**
+ * @brief setter for Literrs_needed
+ * @param need is float type the value we want  to set
+*/
+void ABZ_Sprayer::setlitersNeeded(float need){
+    _liters_needed = need;
+}
+/**
+ * @brief setter for customtartaly
+ * @param packet is a mavling command
+*/
+void ABZ_Sprayer::setCustomTartaly(const mavlink_command_long_t &packet){
+    _customTartaly = packet.param1;
+}
+/**
+ * @brief setter for SpinnerPwm
+ * @param spinnerpwm is float type the value we want  to set
+*/
+void ABZ_Sprayer::setSpinnerPwm(float spinnerpwm)
+{
+    _spinnerpwm=spinnerpwm;
+}
+/**
+ * @brief getter for spacing
+ * @return _spacing as float value
+*/
+float ABZ_Sprayer::getSpacing(){
+    return _spacing;
+}
+/**
+ * @brief getter for covverage
+ * @return _coverage as float value
+*/
+float ABZ_Sprayer::getCoverage(){
+    return _coverage;
+}
+/**
+ * @brief getter for literrs needed
+ * @return _liters_needed as float value
+*/
+float ABZ_Sprayer::getlitersNeeded(){
+    return _liters_needed;
+}
+/**
+ * @brief getter for customTartaly
+ * @return _customTartaly as float value
+*/
+float ABZ_Sprayer::getCustomTartaly(){
+    return _customTartaly;
+}
+/**
+ * namespace definition
+*/
+namespace ABZ {
+
+    ABZ_Sprayer * get_singleton(){
+        return ABZ_Sprayer::get_singleton();
+    }
+
+};
+
+
+

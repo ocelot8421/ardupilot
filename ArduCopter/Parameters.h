@@ -373,17 +373,22 @@ public:
         k_param_autotune_min_d, // remove
         k_param_arming, // 252  - AP_Arming
         k_param_logger = 253, // 253 - Logging Group
-
+        k_param_abz_sprayer,
+       
         // 254,255: reserved
 
         k_param_vehicle = 257, // vehicle common block of parameters
-
+        k_param_ABZ_v_major, //firmware version
+        k_param_ABZ_v_minor, //firmware version
+        k_param_ABZ_v_patch, //firmware version
         // the k_param_* space is 9-bits in size
         // 511: reserved
     };
 
     AP_Int16        format_version;
-
+    AP_Int16        ABZ_v_major;
+    AP_Int16        ABZ_v_minor;
+    AP_Int16        ABZ_v_patch;
     // Telemetry control
     //
     AP_Int16        sysid_this_mav;

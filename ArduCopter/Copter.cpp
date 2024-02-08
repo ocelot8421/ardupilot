@@ -254,7 +254,11 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
 #if STATS_ENABLED == ENABLED
     SCHED_TASK_CLASS(AP_Stats,             &copter.g2.stats,            update,           1, 100, 171),
 #endif
+SCHED_TASK_CLASS(ABZ_Sprayer,&copter.abz_sprayer,update,10,100,174),
+SCHED_TASK_CLASS(ABZ_Sprayer,&copter.abz_sprayer,sendCapacity,10,100,177),
+//SCHED_TASK_CLASS(ABZ_Sprayer,&copter.abz_sprayer,sendCapacity,1,100,177),
 };
+
 
 void Copter::get_scheduler_tasks(const AP_Scheduler::Task *&tasks,
                                  uint8_t &task_count,

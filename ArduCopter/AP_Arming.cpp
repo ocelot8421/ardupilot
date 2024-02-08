@@ -2,7 +2,18 @@
 
 bool AP_Arming_Copter::pre_arm_checks(bool display_failure)
 {
+    const uint32_t now_ms = AP_HAL::millis();
     const bool passed = run_pre_arm_checks(display_failure);
+    if(now_ms - last_prearm_display_ms2 > 5000){
+        if (passed){
+            gcs().send_text(MAV_SEVERITY_INFO, "ARM Ready to flight");
+
+        }else{
+            gcs().send_text(MAV_SEVERITY_INFO, "ARM Not ready to flight");
+            
+        }
+        last_prearm_display_ms2 = now_ms;
+    }
     set_pre_arm_check(passed);
     return passed;
 }
@@ -162,6 +173,10 @@ bool AP_Arming_Copter::board_voltage_checks(bool display_failure)
 // all data loaded
 bool AP_Arming_Copter::terrain_database_required() const
 {
+    return false;
+
+
+    
     if (copter.wp_nav->get_terrain_source() == AC_WPNav::TerrainSource::TERRAIN_FROM_TERRAINDATABASE &&
         copter.mode_rtl.get_alt_type() == ModeRTL::RTLAltType::RTL_ALTTYPE_TERRAIN) {
         return true;

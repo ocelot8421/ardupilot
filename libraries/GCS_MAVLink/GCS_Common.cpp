@@ -2355,7 +2355,57 @@ void GCS_MAVLINK::handle_set_mode(const mavlink_message_t &msg)
 
     const MAV_MODE _base_mode = (MAV_MODE)packet.base_mode;
     const uint32_t _custom_mode = packet.custom_mode;
+   // gcs().send_text(MAV_SEVERITY_INFO,"%d",_custom_mode);
+    AP_GPS * gps=AP_GPS::get_singleton();
+    if(gps==nullptr)
+    {
+        return;
+    }
+  
+   if(_custom_mode==3)
+   {
+        
+        AP_Mission * mission=AP::mission();
+        bool not_start=mission->waypoint_one_kilometer_away_atleast();
+        if(not_start)
+        {
+            ABZ_Sprayer * sprayer = ABZ::get_singleton();
+            if(sprayer==nullptr)
+                {
+                    return;
+                }
+            if(sprayer->firstcheck)
+                {
+                    gcs().send_message(MSG_ABZ_START_MISSION);
+                    sprayer->firstcheck=false;
+                }
+            else
+                {
+                    sprayer->firstcheck=true;
+                    const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
 
+                    if (HAVE_PAYLOAD_SPACE(chan, MAVLINK_MSG_ID_COMMAND_ACK)) {
+                        mavlink_msg_command_ack_send(chan, MAVLINK_MSG_ID_SET_MODE, result,0, 0, 0, 0);
+                    }
+                }
+        }
+        else
+        {
+                const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
+
+                // send ACK or NAK.  Note that this is extraodinarily improper -
+                // we are sending a command-ack for a message which is not a
+                // command.  The command we are acking (ID=11) doesn't actually
+                // exist, but if it did we'd probably be acking something
+                // completely unrelated to setting modes.
+                if (HAVE_PAYLOAD_SPACE(chan, MAVLINK_MSG_ID_COMMAND_ACK)) {
+                    mavlink_msg_command_ack_send(chan, MAVLINK_MSG_ID_SET_MODE, result,0, 0, 0, 0);
+                }
+        }
+    }
+
+    else
+   {
     const MAV_RESULT result = _set_mode_common(_base_mode, _custom_mode);
 
     // send ACK or NAK.  Note that this is extraodinarily improper -
@@ -2363,12 +2413,12 @@ void GCS_MAVLINK::handle_set_mode(const mavlink_message_t &msg)
     // command.  The command we are acking (ID=11) doesn't actually
     // exist, but if it did we'd probably be acking something
     // completely unrelated to setting modes.
-    if (HAVE_PAYLOAD_SPACE(chan, COMMAND_ACK)) {
-        mavlink_msg_command_ack_send(chan, MAVLINK_MSG_ID_SET_MODE, result,
-                                     0, 0,
-                                     msg.sysid,
-                                     msg.compid);
+    if (HAVE_PAYLOAD_SPACE(chan, MAVLINK_MSG_ID_COMMAND_ACK)) {
+        mavlink_msg_command_ack_send(chan, MAVLINK_MSG_ID_SET_MODE, result,0, 0, 0, 0);
     }
+   }
+   
+    
 }
 
 /*
@@ -4685,7 +4735,36 @@ MAV_RESULT GCS_MAVLINK::handle_command_long_packet(const mavlink_command_long_t 
     case MAV_CMD_FIXED_MAG_CAL_YAW:
         result = handle_fixed_mag_cal_yaw(packet);
         break;
-
+    case MAV_CMD_ABZ_SPRAYER:
+        result=handle_command_do_abz_sprayer(packet);
+        break;
+    case MAV_CMD_ABZ_CALCULATE_LITER_NEED:
+        result = handle_command_do_abz_calculate_liter_need(packet);
+        break;
+    case MAV_CMD_ABZ_SEND_CUSTOM_CAPACITY:
+        result = handle_command_do_abz_custom_capacity(packet);
+        break;
+    case MAV_CMD_ABZ_CHANGES:
+        result = handle_command_do_abz_changes(packet);
+        break;
+    case MAV_CMD_ABZ_REQUEST_FIRMWARE_VERSION:
+        result = handle_command_do_abz_request_firmware_version(packet);
+        break;
+    case MAV_CMD_ABZ_REQUEST_MISSION_PARAMS:
+        result = handle_command_do_abz_request_mission_params(packet);
+        break;
+    case MAV_CMD_ABZ_SEND_RTM_PARAMS:
+        result=handle_command_do_abz_sprayer_rtm(packet);
+        break;
+    case MAV_CMD_ABZ_SEND_LITERS_NEEDED:
+        result=handel_command_do_abz_liters_needed(packet);
+        break;
+    case MAV_CMD_ABZ_CALCULATE_POINTS:
+        result=handle_command_do_abz_calculate_points(packet);
+        break;
+    case MAV_CMD_ABZ_REQUEST_DRONE_VERSION:
+        result=handle_command_do_abz_request_drone_version(packet);
+        break; 
     default:
         result = MAV_RESULT_UNSUPPORTED;
         break;
@@ -5128,7 +5207,322 @@ void GCS_MAVLINK::send_attitude() const
         omega.y,
         omega.z);
 }
+/**
+ * @brief Sending the status of the sprayer
+ * 
+ * This is a custom message action to send the sparying status. If the drone is spraying or in test it sends 1 else 0
+ * message name is MSG_ABZ_IS_SPRAYING:
+ * @see AP_Mission::stop() in AP_mission.cpp
+ * @see AP_Mission::complete() in AP_mission.cpp
+ * @see AP_Mission::start_command_abz_sprayer in AP_mission_commands.cpp
+ * @see ABZ_Sprayer::run() in gcs.cpp
+ * @see ABZ_Sprayer::run_mission() in gcs.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_status_spray() const{
 
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+   
+    if(sprayer->spraying_abz){
+        mavlink_msg_abz_is_spraying_send(chan,(int8_t)1);
+    }else if(is_equal(sprayer->_testOrNot,1.0f)){
+        mavlink_msg_abz_is_spraying_send(chan,(int8_t)1);
+    }else{
+        mavlink_msg_abz_is_spraying_send(chan,(int8_t)0);
+    }
+    
+}
+/**
+ * @brief Sending the mission progress informations
+ * 
+ * This is a custom message action to send the mission status parameters to show the progress of the mission
+ * message name is MSG_ABZ_PLAN_PROGRESS:
+ * @see AP_Mission::calculatePoints() in AP_mission.cpp
+ * @see ABZ_Sprayer::run_mission() in gcs.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_plan_progress() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    float liter = sprayer->remaining_fluid;
+    float percentage = sprayer->coverage_percentage; 
+    float time=sprayer->remaining_time;
+    float takeoff=sprayer->remaining_starts;
+
+    mavlink_msg_abz_plan_progress_send(chan,percentage,liter,takeoff,time);
+}
+/**
+ * @brief Sending the mission progress informations
+ * 
+ * This is a custom message action to send the mission status parameters to show the progress of the mission
+ * message name is MSG_ABZ_PLAN_PROGRESS:
+ * @see AP_Mission::calculatePoints() in AP_mission.cpp
+ * @see ABZ_Sprayer::run_mission() in gcs.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_is_mission_in_progress() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+    
+    AP_Mission *mission = AP_Mission::get_singleton();
+
+    if (mission == nullptr) {
+        return;
+    }
+
+    mavlink_msg_abz_is_mission_in_progress_send(chan,(int8_t)mission->state());
+}
+/**
+ * @brief Sending the action code what to do if the tank is empty
+ * 
+ * This is a custom message action to send an action code if the tank is empty so qgc can give commands
+ * message name is MSG_ABZ_EMPTY_TANK_ACTION:
+ * @see ABZ_Sprayer::update() in gcs.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_empty_tank_action() const{
+
+    mavlink_msg_abz_empty_tank_action_send(chan,(int8_t)1);
+}
+/**
+ * @brief Sending the version of the firmware
+ * 
+ * This is a custom message action to send firmware version in major,minor,patch
+ * message name is MSG_ABZ_FIRMWARE_VERSION:
+ * @see handle_command_do_abz_request_firmware_version() in gcs_common.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_firmware_version_action() const{
+    
+    mavlink_msg_abz_firmware_version_send(chan,1.0,0.0,3.0);
+}
+/**
+ * @brief Sending the amount left in the tank
+ * 
+ * This is a custom message action to send the amount of liquid left in the tank in liters
+ * message name is MSG_ABZ_LITER_LEFT:
+ * @see ABZ_Sprayer::sendCapacity() in gcs.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_liter_left_action() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    float liter;
+
+    if (sprayer->liters_left<0.0){
+        liter = 0.0;
+    }else{
+        liter = sprayer->liters_left;
+    }
+
+    mavlink_msg_abz_liter_left_send(chan,liter);
+}
+/**
+ * @brief Sending the values of ther mission items
+ * 
+ * This is a custom message action to send the values for each type of mission items
+ * The function searches for items in storage by id. Retrieves the value of certain items. 
+ * It is used to check the values in the drone also qgc uses it to show in settings
+ * message name is MSG_ABZ_MISSION_PARAMS:
+ * @see handle_command_do_abz_request_mission_params in gcs_common.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_mission_params_action() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    AP_Mission *mission = AP_Mission::get_singleton();
+    
+    if (mission == nullptr) {
+        return;
+    }
+    //create float variables
+    float coverage = -1;
+    float pwm = -1;
+    float speed  = -1;
+    float alt = -1;
+    float spacing = -1;
+     float liter;
+    //create int variables
+    int j = 1;
+    int cmd_total = mission->num_commands();
+    //create mission command variables
+    AP_Mission::Mission_Command cmd;
+    //handel if rtm is done
+    if(mission->isRTMDone){
+        j = 5;
+    }
+
+    if (sprayer->liters_left<0.0){
+        liter = 0.0;
+    }else{
+        liter = sprayer->liters_left;
+    }
+    //if we reach end of storage or find all value we stop
+    while (j < cmd_total && ( coverage < 0 || pwm < 0 || speed < 0 || alt < 0 || spacing < 0)){
+        //read item
+        mission->read_cmd_from_storage(j,cmd);
+        //check ids 
+        if (cmd.id == 1500){
+            spacing = cmd.content.sprayer.spacing;
+            coverage = cmd.content.sprayer.coverage;
+            pwm = cmd.content.sprayer.spinnerpwm;
+        }else if (cmd.id == 178){
+            speed = cmd.content.speed.target_ms;
+        }else if(cmd.id == 16){
+            alt = cmd.content.location.alt;
+        }
+
+        j = j+1;
+
+    }
+    //gcs().send_text(MAV_SEVERITY_INFO,"Coverage sen %f",coverage);
+    //send values, if not find send -1 qgc handels it.
+    mavlink_msg_abz_mission_params_send(chan,coverage,pwm,speed,alt,spacing,liter,sprayer->start_pwm,sprayer->start_pwm_sec,sprayer->is_start_pwm);
+}
+/**
+ * @brief Sending the lat lon values of the returning point
+ * 
+ * This is a custom message action to send the latitude and longitude values of the returning point
+ * message name is MSG_ABZ_RETURNING_POINT_COR:
+ * @see AP_Mission::calculatePoints() in ap_mission.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_returning_point_cor_action() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    float lat = sprayer->rlat;
+    float lng = sprayer->rlng;
+
+    mavlink_msg_abz_returning_point_cor_send(chan,lat,lng);
+}
+/**
+ * @brief Sending the lat lon values of the tank epmty point
+ * 
+ * This is a custom message action to send the latitude and longitude values of the point where the tank runs empty
+ * message name is MSG_ABZ_EMPTY_POINT_COR:
+ * @see AP_Mission::calculatePoints() in ap_mission.cpp
+ * @see GCS_MAVLINK::try_send_message() in gcs_common.cpp
+ */
+void GCS_MAVLINK::send_abz_empty_point_cor_action() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    float lat = sprayer->tlat;
+    float lng = sprayer->tlng;
+    
+    mavlink_msg_abz_empty_point_cor_send(chan,lat,lng);
+}
+
+/**
+ * @brief Sending coordinates of quartering point between #2 and #5 waypoint
+ */
+void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
+    AP_Mission *mission = AP_Mission::get_singleton();
+    
+    if (mission == nullptr) {
+        return;
+    }
+
+    AP_Mission::Mission_Command cmd;
+    int cmd_total = mission->num_commands();
+    int j = 1;
+
+    float latStart = -1, lngStart = -1;
+    float latEnd = -1,   lngEnd = -1;
+    float latL = -1,     lngL = -1;
+
+    bool flag_before_cmdID16 = true;
+
+    while (j < cmd_total && flag_before_cmdID16){
+        mission->read_cmd_from_storage(j,cmd);
+        
+        if (flag_before_cmdID16 && cmd.id == 16){ //cmd.id == 16 -> find the firt non rtm waypoint
+            latStart = (double)cmd.content.location.lat/(double)10000000;
+            lngStart = (double)cmd.content.location.lng/(double)10000000;
+            
+            mission->read_cmd_from_storage(j+3,cmd);
+            latEnd = (double)cmd.content.location.lat/(double)10000000;
+            lngEnd = (double)cmd.content.location.lng/(double)10000000;
+            flag_before_cmdID16 = false;
+        }
+        j = j+1;     
+    }
+    latL = latStart + 0.75 * (latEnd - latStart);
+    lngL = lngStart + 0.75 * (lngEnd - lngStart);
+    
+    mavlink_msg_abz_lemon_point_cor_send(chan,latL,lngL);
+}
+
+/**
+ * @brief Sending the version of the drone
+ * 
+ * This is a custom message action to send drone version L10=1 L30=2
+ * message name is MSG_ABZ_DRONE_VERSION:
+ */
+void GCS_MAVLINK::send_abz_drone_version_action() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+
+    
+    
+    mavlink_msg_abz_drone_version_send(chan,(int8_t)sprayer->drone_type);
+}
+/**
+ * @brief Sending the lat lon values of the tank epmty point
+ * 
+ * This is a custom message action to send the latitude and longitude values of the point where the tank runs empty
+ * message name is SG_ABZ_IS_RETURN_POINT:
+ */
+void GCS_MAVLINK::send_abz_is_return_point() const{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return;
+    }
+    
+    int8_t returning =  1;
+
+    mavlink_msg_abz_is_return_point_send(chan,returning);
+}
+
+void GCS_MAVLINK::send_abz_start_mission() const
+{
+    mavlink_msg_abz_start_mission_send(chan,(int8_t)1);
+
+}
+void GCS_MAVLINK::send_abz_update_mission() const
+{
+    mavlink_msg_abz_update_mission_send(chan,(int8_t)1);
+}
 void GCS_MAVLINK::send_attitude_quaternion() const
 {
     const AP_AHRS &ahrs = AP::ahrs();
@@ -5365,7 +5759,62 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     bool ret = true;
 
     switch(id) {
-
+    case MSG_ABZ_DRONE_VERSION:
+        CHECK_PAYLOAD_SIZE(ABZ_DRONE_VERSION);
+        send_abz_drone_version_action();
+        break;
+    case MSG_ABZ_LITER_LEFT:
+        CHECK_PAYLOAD_SIZE(ABZ_LITER_LEFT);
+        send_abz_liter_left_action();
+        break;
+    case MSG_ABZ_MISSION_PARAMS:
+        CHECK_PAYLOAD_SIZE(ABZ_MISSION_PARAMS);
+        send_abz_mission_params_action();
+        break;
+    case MSG_ABZ_FIRMWARE_VERSION:
+        CHECK_PAYLOAD_SIZE(ABZ_FIRMWARE_VERSION);
+        send_abz_firmware_version_action();
+        break;
+    case MSG_ABZ_RETURNING_POINT_COR:
+        CHECK_PAYLOAD_SIZE(ABZ_RETURNING_POINT_COR);
+        send_abz_returning_point_cor_action();
+        break;
+    case MSG_ABZ_EMPTY_POINT_COR:
+        CHECK_PAYLOAD_SIZE(ABZ_EMPTY_POINT_COR);
+        send_abz_empty_point_cor_action();
+        break;
+    case MSG_ABZ_LEMON_POINT_COR:
+        CHECK_PAYLOAD_SIZE(ABZ_LEMON_POINT_COR);
+        send_abz_lemon_point_cor_action();
+        break;
+    case MSG_ABZ_EMPTY_TANK_ACTION:
+        CHECK_PAYLOAD_SIZE(ABZ_EMPTY_TANK_ACTION);
+        send_abz_empty_tank_action();
+        break;
+    case MSG_ABZ_IS_MISSION_IN_PROGRESS:
+        CHECK_PAYLOAD_SIZE(ABZ_IS_MISSION_IN_PROGRESS);
+        send_abz_is_mission_in_progress();
+        break;
+    case MSG_ABZ_UPDATE_MISSION:
+        CHECK_PAYLOAD_SIZE(ABZ_UPDATE_MISSION);
+        send_abz_update_mission();
+        break;
+    case MSG_ABZ_IS_RETURN_POINT:
+        CHECK_PAYLOAD_SIZE(ABZ_IS_RETURN_POINT);
+        send_abz_is_return_point();
+        break;
+    case MSG_ABZ_PLAN_PROGRESS:
+        CHECK_PAYLOAD_SIZE(ABZ_PLAN_PROGRESS);
+        send_abz_plan_progress();
+        break;
+    case MSG_ABZ_START_MISSION:
+        CHECK_PAYLOAD_SIZE(ABZ_START_MISSION);
+        send_abz_start_mission();
+        break;
+    case MSG_ABZ_IS_SPRAYING:
+        CHECK_PAYLOAD_SIZE(ABZ_IS_SPRAYING);
+        send_abz_status_spray();
+        break;
     case MSG_ATTITUDE:
         CHECK_PAYLOAD_SIZE(ATTITUDE);
         send_attitude();
@@ -6401,3 +6850,261 @@ MAV_RESULT GCS_MAVLINK::handle_control_high_latency(const mavlink_command_long_t
     return MAV_RESULT_ACCEPTED;
 }
 #endif // HAL_HIGH_LATENCY2_ENABLED
+/**
+ * @brief Handles the custom capacity command
+ * 
+ * This is a custom command action to handel command that sends custom capacity
+ * If gets command it sets value of tartaly_liter,and liters_left
+ * command name is MAV_CMD_ABZ_SEND_CUSTOM_CAPACITY:
+ * @see handle_command_long_packet in gcs_common.cpp
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_custom_capacity(const mavlink_command_long_t &packet)
+{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+
+    sprayer->setCustomTartaly(packet);
+    sprayer->tartaly_liter=sprayer->getCustomTartaly();
+    sprayer->liter_left=sprayer->getCustomTartaly();
+    sprayer->liters_left.set_and_save(sprayer->getCustomTartaly());
+
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the custom liter need calculation
+ * 
+ * This is a custom command action to handel command that trigers liter need calculation
+ * If gets command it runs CalculateLiterNeed() function
+ * command name is MAV_CMD_ABZ_CALCULATE_LITER_NEED:
+ * @see CalculateLiterNeed() in ap_mission.cpp
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_calculate_liter_need(const mavlink_command_long_t &packet){
+
+    AP_Mission *mission = AP_Mission::get_singleton();
+    
+    if (mission == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+
+    mission->CalculateLiterNeed();
+    
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the firmware request
+ * 
+ * This is a custom command action to handel firmware request
+ * If gets command it sends the MSG_ABZ_FIRMWARE_VERSION message
+ * command name is MAV_CMD_ABZ_REQUEST_FIRMWARE_VERSION:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_request_firmware_version(const mavlink_command_long_t &packet){
+    gcs().send_message(MSG_ABZ_FIRMWARE_VERSION);
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the mission pram requests
+ * 
+ * This is a custom command action to handel mission param requests
+ * If gets command it sends the MSG_ABZ_MISSION_PARAMS message
+ * command name is MAV_CMD_ABZ_REQUEST_MISSION_PARAMS:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_request_mission_params(const mavlink_command_long_t &packet){
+    gcs().send_message(MSG_ABZ_MISSION_PARAMS);
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the mission pchanges command
+ * 
+ * This is a custom command action to handel changes
+ * If gets command it goes throught the mission items in storage and sets the values of items based on ID and param
+ * IT is used when user changes mission values in qgc
+ * command name is MAV_CMD_ABZ_CHANGES:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_changes(const mavlink_command_long_t &packet){
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+
+    AP_Mission *mission = AP_Mission::get_singleton();
+    
+    if (mission == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+    //int variables
+    int __cmd_total = mission->num_commands();
+    int j = 1;
+    int cmd_total = mission->num_commands();
+    //mission command variables
+    AP_Mission::Mission_Command cmd;
+    //handle rtm
+    if(mission->isRTMDone){
+        j = 5;
+    }
+    //go throught evry mission item in storage
+    while (j < cmd_total){
+        mission->read_cmd_from_storage(j,cmd);
+        //based on ID it sets values from params, if value invalid send error text
+        if (cmd.id == 1500){
+
+            if (packet.param1>0.0){
+                cmd.content.sprayer.coverage = packet.param1;
+                //gcs().send_text(MAV_SEVERITY_INFO,"Coverage set %f",packet.param1);
+            }else{
+                gcs().send_text(MAV_SEVERITY_INFO,"coverage is null. Check settings");
+            }
+            
+            if(packet.param2>0.0){
+                cmd.content.sprayer.spinnerpwm = packet.param2;
+            }else{
+                gcs().send_text(MAV_SEVERITY_INFO,"Micron is null. Check settings");
+            }
+
+            if(packet.param5>0.0){
+                cmd.content.sprayer.spacing = packet.param5;
+            }else{
+                gcs().send_text(MAV_SEVERITY_INFO,"Spacing is null. Check settings");
+            }
+            
+        }else if(cmd.id == 178){
+
+            if(packet.param3>0.0){
+                 cmd.content.speed.target_ms = packet.param3;
+            }else{
+                gcs().send_text(MAV_SEVERITY_INFO,"Speed is null. Check settings");
+            }
+             
+        }else if(cmd.id == 16){
+
+            if(packet.param4>0.0){
+                cmd.content.location.alt = packet.param4;
+            }else{
+                gcs().send_text(MAV_SEVERITY_INFO,"Altitude is null. Check settings");
+            }
+            
+        }
+        //write back to storage
+        mission->write_cmd_to_storage(j,cmd);
+        j = j+1;
+
+    }
+    //save the sorage
+    mission->setSave(__cmd_total);
+       
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the abz sprayer ccommand
+ * 
+ * This is a custom command action to handle abz sprayer
+ * If gets command it sets the values for the sprayer
+ * command name is MAV_CMD_ABZ_SPRAYER:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_sprayer(const mavlink_command_long_t &packet){
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+   
+    AP_Mission* mission= AP::mission();
+
+    if(mission==nullptr){
+            return MAV_RESULT_FAILED;
+    }
+
+    if(mission->state()==mission->MISSION_RUNNING){
+            sprayer->setDontSprayInMission();
+            return MAV_RESULT_ACCEPTED;
+    }
+   
+    if(is_equal(packet.param5,1.0f)){
+            sprayer->set_Calculating_Values(packet);
+    }else if(is_equal(sprayer->_testOrNot,1.0f)){
+            sprayer->set_Calculating_Values(packet);
+    }else{
+            sprayer->run();
+            sprayer->set_Calculating_Values(packet);
+    }
+    
+    gcs().send_message(MSG_ABZ_IS_SPRAYING);
+    return MAV_RESULT_ACCEPTED;
+
+}
+/**
+ * @brief Handles the rtm command
+ * 
+ * This is a custom command action to handle rtm
+ * If gets command it sets the values for RTM
+ * command name is MAV_CMD_ABZ_SPRAYER:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_sprayer_rtm(const mavlink_command_long_t &packet)
+{
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+    
+    sprayer->set_rtm_value(packet.param1,packet.param2,packet.param3);
+    
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the liters needed command
+ * 
+ * This is a custom command action to handle liters needed
+ * If gets command it sets liter need value
+ * command name is MAV_CMD_ABZ_SEND_LITERS_NEEDED:
+ */
+MAV_RESULT GCS_MAVLINK::handel_command_do_abz_liters_needed(const mavlink_command_long_t &packet){
+    ABZ_Sprayer *sprayer = ABZ::get_singleton();
+
+    if (sprayer == nullptr) {
+        return MAV_RESULT_FAILED;
+    }
+    
+    sprayer->setlitersNeeded(packet.param1);
+    sprayer->total_sprayed = packet.param2;
+    
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the calculate point command
+ * 
+ * This is a custom command action to handle calculate point
+ * If gets command it runs the calculate points function
+ * command name is MAV_CMD_ABZ_CALCULATE_POINTS:
+ * @see calculatePoints() in ap_mission.cpp
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_calculate_points(const mavlink_command_long_t &packet){
+    AP_Mission* mission= AP::mission();
+
+    if(mission==nullptr){
+        return MAV_RESULT_FAILED;
+    } 
+
+    mission->calculatePoints();
+    return MAV_RESULT_ACCEPTED;
+}
+/**
+ * @brief Handles the drone type request
+ * 
+ * This is a custom command action to handel drone type request
+ * If gets command it sends the MSG_ABZ_DRONE_VERSION message
+ * command name is MAV_CMD_ABZ_REQUEST_DRONE_VERSION:
+ */
+MAV_RESULT GCS_MAVLINK::handle_command_do_abz_request_drone_version(const mavlink_command_long_t &packet){
+    AP_Mission* mission= AP::mission();
+
+    if(mission==nullptr){
+        return MAV_RESULT_FAILED;
+    } 
+
+    gcs().send_message(MSG_ABZ_DRONE_VERSION);
+    return MAV_RESULT_ACCEPTED;
+}

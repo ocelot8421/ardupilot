@@ -36,6 +36,27 @@
 #endif
 
 const AP_Param::Info Copter::var_info[] = {
+    // @Param: ABZ_V_MAJOR
+    // @DisplayName: Firmware v major
+    // @Description: the actual version of the firmware major
+    // @User: Standard
+    // @ReadOnly: True
+    GSCALAR(ABZ_v_major, "ABZ_V_MAJOR",   1),
+
+    // @Param: ABZ_V_MINOR
+    // @DisplayName: ABZ v minor
+    // @Description: the actual version of the firmware minor
+    // @User: Standard
+    // @ReadOnly: True
+    GSCALAR(ABZ_v_minor, "ABZ_V_MINOR",   0),
+
+    // @Param: ABZ_V_PATCH
+    // @DisplayName: ABZ v patch
+    // @Description: the actual version of the firmware
+    // @User: Standard
+    // @ReadOnly: True
+    GSCALAR(ABZ_v_patch, "ABZ_V_PATCH",   3),
+
     // @Param: FORMAT_VERSION
     // @DisplayName: Eeprom format version number
     // @Description: This value is incremented when changes are made to the eeprom format
@@ -82,6 +103,8 @@ const AP_Param::Info Copter::var_info[] = {
     // @Values: 0:None,1:Feedback from mid stick,2:High throttle cancels landing,4:Disarm on land detection
     // @Bitmask: 0:Feedback from mid stick,1:High throttle cancels landing,2:Disarm on land detection
     GSCALAR(throttle_behavior, "PILOT_THR_BHV", 0),
+
+
 
     // @Group: SERIAL
     // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
@@ -487,6 +510,10 @@ const AP_Param::Info Copter::var_info[] = {
     // @Group: COMPASS_
     // @Path: ../libraries/AP_Compass/AP_Compass.cpp
     GOBJECT(compass,        "COMPASS_", Compass),
+
+    // @Group: ABZ_
+    // @Path: ../libraries/GCS_MAVLink/GCS.cpp
+    GOBJECT(abz_sprayer,        "ABZ_", ABZ_Sprayer),
 
     // @Group: INS_
     // @Path: ../libraries/AP_InertialSensor/AP_InertialSensor.cpp

@@ -301,6 +301,24 @@ public:
     void send_opticalflow();
 #endif
     virtual void send_attitude() const;
+    /**
+     * Custom mavlink functions
+    */
+    void send_abz_status_spray() const;
+    void send_abz_start_mission() const;
+    void send_abz_update_mission() const;
+    void send_abz_plan_progress() const;
+    void send_abz_is_return_point() const;
+    void send_abz_is_mission_in_progress() const;
+    void send_abz_returning_point_cor_action() const;
+    void send_abz_mission_params_action() const;
+    void send_abz_liter_left_action() const;
+    void send_abz_drone_version_action() const;
+    void send_abz_firmware_version_action() const;
+    void send_abz_empty_point_cor_action() const;
+    void send_abz_lemon_point_cor_action() const;
+    void send_abz_empty_tank_action() const;
+
     virtual void send_attitude_quaternion() const;
     void send_autopilot_version() const;
     void send_extended_sys_state() const;
@@ -414,7 +432,16 @@ public:
     MAV_RESULT set_message_interval(uint32_t msg_id, int32_t interval_us);
 
 protected:
-
+   MAV_RESULT handle_command_do_abz_sprayer(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_sprayer_rtm(const mavlink_command_long_t &packet);
+    MAV_RESULT handel_command_do_abz_liters_needed(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_calculate_points(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_request_drone_version(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_custom_capacity(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_calculate_liter_need(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_changes(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_request_firmware_version(const mavlink_command_long_t &packet);
+    MAV_RESULT handle_command_do_abz_request_mission_params(const mavlink_command_long_t &packet);
     bool mavlink_coordinate_frame_to_location_alt_frame(MAV_FRAME coordinate_frame,
                                                         Location::AltFrame &frame);
 
@@ -1244,4 +1271,173 @@ void can_printf(const char *fmt, ...);
 #define GCS_SEND_TEXT(severity, format, args...)
 
 #endif // HAL_GCS_ENABLED
+/// @file   ABZ_Sprayer.h
+/// @brief  Crop sprayer library
+
+/**
+    The crop spraying functionality can be enabled in ArduCopter by doing the following:
+        - set RC7_OPTION or RC8_OPTION parameter to 15 to allow turning the sprayer on/off from one of these channels
+        - set SERVO10_FUNCTION to 22 to enable the servo output controlling the pump speed on servo-out 10
+        - set SERVO11_FUNCTION to 23 to enable the servo output controlling the spinner on servo-out 11
+        - ensure the RC10_MIN, RC10_MAX, RC11_MIN, RC11_MAX accurately hold the min and maximum servo values you could possibly output to the pump and spinner
+        - set the SPRAY_SPINNER to the pwm value the spinner should spin at when on
+        - set the SPRAY_PUMP_RATE to the value the pump servo should move to when the vehicle is travelling 1m/s expressed as a percentage (i.e. 0 ~ 100) of the full servo range.  I.e. 0 = the pump will not operate, 100 = maximum speed at 1m/s.  50 = 1/2 speed at 1m/s, full speed at 2m/s
+        - set the SPRAY_PUMP_MIN to the minimum value that the pump servo should move to while engaged expressed as a percentage (i.e. 0 ~ 100) of the full servo range
+        - set the SPRAY_SPEED_MIN to the minimum speed (in cm/s) the vehicle should be moving at before the pump and sprayer are turned on.  0 will mean the pump and spinner will always be on when the system is enabled with ch7/ch8 switch
+**/
+//TODO make it custom lib
+#pragma once
+#include <inttypes.h>
+#include <AP_Common/AP_Common.h>
+#include <AP_Param/AP_Param.h>
+/**ABZ parameters*/
+#define ABZ_SPRAYER_DEFAULT_START_PWM_SEC    1               ///< The default time that is used at the beginning of a spraying section for high pwm
+#define ABZ_SPRAYER_DEFAULT_START_PWM        1800            ///< The default pwm that is used at the beginning of a spraying section
+#define ABZ_SPRAYER_FIRM_VERSION             1.0             ///< firmware version deprecated
+#define ABZ_SPRAYER_DEFAULT_LN               1.0             ///< Default liters need, used to come from QGC now  it is from calculation
+#define ABZ_SPRAYER_DEFAULT_TS               0.0             ///< Total sprayed liquid during the mission
+#define ABZ_SPRAYER_FLIGHT_MOD               0               ///< flight mod  0 isterrain follow 1 is relative to home
+#define ABZ_SPRAYER_DEFAULT_A                36922.0         ///< A param of PWM calculation (magic number) 
+#define ABZ_SPRAYER_DEFAULT_B                8048.5          ///< B param of PWM calculation (magic number) 
+#define ABZ_SPRAYER_DEFAULT_C                1053.1          ///< C param of PWM calculation (magic number)
+
+/// @class  ABZ_Sprayer
+/// @brief  Object managing a crop sprayer comprised of a spinner and a pump both controlled by pwm
+class ABZ_Sprayer {
+public:
+    //TODO consider more private
+    ABZ_Sprayer();
+    int returning_point =   -7;         /**The optimal returning point of the drone in mission. Calculated by firmware -7 never be a valid mission item*/
+    int count_sec   =   0;              /*Not used, or reference errror*/
+    int delay   =   1000;               /**Milisec no results*/
+    int start_time;                     /**time stamp of spraying start*/
+    int now;                            /**Not used or reference errror*/
+
+    uint32_t    last_time   =   AP_HAL::millis();   /**Not used or reference errror*/
+    uint32_t    start_pwm_time   =   0;                  /**Stores time of High PWM start. @see update() in GCS.cpp*/
+
+    double  coverage_percentage  =   0.0;       /**Percentage of the spraying. @see APMISSION::calculatePoints() and update() in GCS.cpp*/
+    double  tartaly_liter    =   -10.0;         /**Liquid loaded to the tank in liters*/
+    double  liter_per_sec    =   0.0;           /**Not used, or reference errror*/
+    double  round_sprayed    =   0.0;           /**Amount of sprayed liquid in the round (since AP_MISSION::start()) in liquid*/
+    double  remaining_fluid  =   0.0;           /**The total amount left to spray in liters*/
+    double  remaining_starts =   0.0;           /**The amount of takeoffs remaining to finish misssion*/
+    double  remaining_time   =   0.0;           /**The reamining time to finish mission*/
+    double  liter_per_second =   0.0;           /**Liter out per second during spraying based on spacing and coverage*/
+    double  total_meter  =   0.0;               /**The length of the remaining mission in meters*/
+    double  max_speed    =   0.0;               /**The speed seted in the waypoint is the max speed the dron will aim*/
+    double  rlat = -1.0;                        /**Returning point latitude send with MSG_ABZ_RETURNING_POINT_COR @see gcs_common.cpp*/
+    double  rlng = -1.0;                        /**Returning point longitude send with MSG_ABZ_RETURNING_POINT_COR @see gcs_common.cpp*/
+    double  tlat = -1.0;                        /**Tank empty point latitude send with MSG_ABZ_EMPTY_POINT_COR @see gcs_common.cpp*/
+    double  tlng = -1.0;                        /**Tank empty point longitude send with MSG_ABZ_EMPTY_POINT_COR @see gcs_common.cpp*/
+
+    float   return_to_mission_like_rtl_speed    =   0;          /**The speed the drone aim during RTM*/
+    float   _testOrNot  =   false;                              /**Is it test or not test*/
+    float   liter_left;                                         /**The liter left in the tank*/
+    float   total_sprayed;                                      /**Total amount sprayed out in liter*/
+    
+    bool    send_tank_is_empty  =   true;                       /**It's true If tank level below threshold*/
+    bool    spraying_abz    =   false;                          /**True if the drone is spraying*/
+    bool    firstcheck  =   true;                               /**Basic checks*/
+
+    AP_Int16    start_pwm;              /**The pwm that is used at the beginning of a spraying sectin @see ABZ_Sprayer::update() in gcs.cpp*/
+    AP_Int16    start_pwm_sec;          /**The time of the higher pwm at the beginning of a spraying section in seconds @see ABZ_Sprayer::update() in gcs.cpp*/
+    AP_Int8     F_MOD;                  /**Flight mod param if 0 terrain follow if 1 relativ to alt @see surface_tracking.cpp*/
+    AP_Int8     is_start_pwm;           /**Param wich turns on and off the pre pwm function*/
+    AP_Int8     drone_type;             /**Type of the drone. If 1 is L10 2 is L30*/
+    AP_Float    pwm_a;                  /**A param of PWM calculatin @see ABZ_Sprayer::update() in gcs.cpp*/
+    AP_Float    pwm_b;                  /**B param of PWM calculatin @see ABZ_Sprayer::update() in gcs.cpp*/
+    AP_Float    pwm_c;                  /**C param of PWM calculatin @see ABZ_Sprayer::update() in gcs.cpp*/
+    AP_Float    T_sprayed;              /**Total amount of sprayed liquid in liters stored in param used for calculations @see gcs.spp and AP_mission.cpp*/
+    AP_Float    L_Need;                 /**Total liter need in mission stored in param used for calculations @see gcs.spp and AP_mission.cpp*/
+    AP_Float    firm_version;           /**Version of firmware not used anymore*/
+    AP_Float    liters_left;            /**The amuont of liquid in the tank stored as a param send with MSG_ABZ_LITER_LEFT @see ABZ_Sprayer::sendCapacity() in gcs.cpp*/
+    /** Do not allow copies */
+    ABZ_Sprayer(const ABZ_Sprayer &other)   =   delete;
+    ABZ_Sprayer &operator=(const ABZ_Sprayer&)  =   delete;
+
+    static  ABZ_Sprayer *get_singleton();                               /**Singelton of ABZ_Sprayer class*/
+    static  ABZ_Sprayer *_singleton;                                    /**Singelton of ABZ_Sprayer class*/
+    static const struct  AP_Param::GroupInfo var_info[];                /**Param group for ABZ_Sprayer class*/
+    /**setters @see gcs.cpp for details*/
+    void    set_Calculating_Values(const mavlink_command_long_t &packet);
+    void    set_Calculating_Values(const mavlink_mission_item_int_t& packet);
+    void    setCustomTartaly(const mavlink_command_long_t &packet);
+    void    set_Calculating_Values_command(const AP_Mission::Mission_Command& cmd);
+    void    setmissionpoints(int pointsnumber) {_number_of_mission_points=pointsnumber;}
+    void    setSpacing(float spacing);
+    void    setCoverage(float coverage);
+    void    setlitersNeeded(float need);
+    void    setSpinnerPwm(float spinnerwm);
+    void    set_rtm_value(float rtm_value,float rtm_value_alt,float rtm_value_speed);
+    void    set_pump_rate(float pct_at_1ms) { _pump_pct_1ms.set(pct_at_1ms); }
+    void    SetSpraying_speed_adaptive(bool spraying);
+    void    setDontSprayInMission();
+    /**getters @see gcs.cpp for details*/
+    int     getmissionpoints() {return _number_of_mission_points;}
+
+    int32_t    getRTMAlt()    {return return_to_mission_like_rtl_altitude;}
+
+    float   getSpacing();
+    float   getCustomTartaly();
+    float   getCoverage();
+    float   getlitersNeeded();
+
+    bool    getReturn_To_Mission_Like_Rtl() {return return_to_mission_like_rtl;}
+    /**do*/
+    void    resetDontSprayInMission();
+    /// run - allow or disallow spraying to occur
+    void    run();
+    /// running - returns true if spraying is currently permitted
+    bool    running() const { return _flags.running; }
+    /// spraying - returns true if spraying is actually happening
+    bool    spraying() const { return _flags.spraying; }
+    /// test_pump - set to true to turn on pump as if travelling at 1m/s as a test
+    void    test_pump(bool true_false) { _flags.testing = true_false; }
+    /// set_pump_rate - sets desired quantity of spray when travelling at 1m/s as a percentage of the pumps maximum rate
+    void    sendCapacity();
+    /// update - adjusts servo positions based on speed and requested quantity
+    void    update();
+    void    run_mission(bool true_false);
+
+private:
+
+    int    _number_of_mission_points;
+
+    uint16_t    _spinnerpwm;                                        /**PWM of sprayer head*/
+    int32_t     return_to_mission_like_rtl_altitude    =   1500;    /**Altitude the drone aims when doing RTM*/
+    uint32_t    _speed_under_min_time;                              /**Not used or reference errror*/
+
+    float   _liters_needed;                     /**Liter needed for mission not used*/
+    float   _customTartaly;                     /**The amount of liquid loaded to the tank in liters*/
+    float   _coverage;                          /**The coverage value seted in Mission spryer command*/
+    float   _spacing;                           /**The coverage value seted in Mission spryer command*/
+    float   _testPumpPWM;                       /**Liquid pump pwm during test*/
+    float   _testSpinnerPWM;                    /**Spinner pwm during test*/
+
+    bool    dont_spray                  =   false;      /**Spraye or not*/
+    bool    return_to_mission_like_rtl  =   false;      /**If RTM like RTL is in its true*/
+             
+    AP_Int8     _enabled;               ///< top level enable/disable control
+    AP_Int8     _pump_min_pct;          ///< minimum pump rate (expressed as a percentage from 0 to 100)
+
+    AP_Int16    _spinner_pwm;           ///< pwm rate of spinner
+
+    AP_Float    _pump_pct_1ms;          ///< desired pump rate (expressed as a percentage of top rate) when travelling at 1m/s
+    AP_Float    _speed_min;    ///< minimum speed in cm/s above which the sprayer will be started
+    /// flag bitmask
+    struct sprayer_flags_type {
+        uint8_t spraying    : 1;            ///< 1 if we are currently spraying
+        uint8_t testing     : 1;            ///< 1 if we are testing the sprayer and should output a minimum value
+        uint8_t running     : 1;            ///< 1 if we are permitted to run sprayer
+    } _flags;
+
+    void stop_spraying();
+};
+
+namespace ABZ {
+    ABZ_Sprayer * get_singleton();
+};
+
+
 

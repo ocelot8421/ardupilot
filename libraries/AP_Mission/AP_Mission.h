@@ -57,6 +57,7 @@ class AP_Mission
 {
 
 public:
+
     // jump command structure
     struct PACKED Jump_Command {
         uint16_t target;        // target command id
@@ -244,7 +245,14 @@ public:
         uint8_t flags;
         uint8_t gimbal_id;
     };
-
+/**custom sprayer package*/
+ //sprayer structure
+    struct PACKED Sprayer{
+        float spacing;
+        float coverage;
+        uint16_t spinnerpwm;
+        
+    };
     union Content {
         // jump structure
         Jump_Command jump;
@@ -326,6 +334,9 @@ public:
 
         // location
         Location location{};      // Waypoint location
+
+         //sprayer
+        Sprayer sprayer ;
     };
 
     // command structure
@@ -620,7 +631,7 @@ public:
 
     // reset the mission history to prevent recalling previous mission histories when restarting missions.
     void reset_wp_history(void);
-
+    void setSave(int number);
     /*
       return true if MIS_OPTIONS is set to allow continue of mission
       logic after a land and the next waypoint is a takeoff. If this
@@ -638,6 +649,19 @@ public:
     // allow lua to get/set any WP items in any order in a mavlink-ish kinda way.
     bool get_item(uint16_t index, mavlink_mission_item_int_t& result) const ;
     bool set_item(uint16_t index, mavlink_mission_item_int_t& source) ;
+    /**custom functions*/
+    bool isRTMDone = false;
+    bool waypoint_one_kilometer_away_atleast();
+    bool start_command_abz_sprayer(const AP_Mission::Mission_Command& cmd);
+    std::pair<double,double> calculatePoint3(double lat1, double lon1, double lat2, double lon2, double dist13);
+    void calculatePoints();
+    void calculatePoints2();
+    void RTM();
+    void CalculateLiterNeed();
+    void calculateTotalMeter();
+    double radiansToDegrees(double radians);
+    double degreesToRadians(double degrees);
+    double get_dist_of_two_points(double latp1,double lngp1,double latp2,double lngp2);
 
 private:
     static AP_Mission *_singleton;
@@ -747,6 +771,8 @@ private:
     struct Mission_Command  _do_cmd;    // current "do" command.  It's position in the command list is held in _do_cmd.index
     struct Mission_Command  _resume_cmd;  // virtual wp command that is used to resume mission if the mission needs to be rewound on resume.
     uint16_t                _prev_nav_cmd_id;       // id of the previous "navigation" command. (WAYPOINT, LOITER_TO_ALT, ect etc)
+    struct Mission_Command _prev_nav_cmd; //previous "navigation command"
+  
     uint16_t                _prev_nav_cmd_index;    // index of the previous "navigation" command.  Rarely used which is why we don't store the whole command
     uint16_t                _prev_nav_cmd_wp_index; // index of the previous "navigation" command that contains a waypoint.  Rarely used which is why we don't store the whole command
     struct Location         _exit_position;  // the position in the mission that the mission was exited
