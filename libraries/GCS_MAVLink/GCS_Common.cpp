@@ -5461,12 +5461,14 @@ void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
 
     while (j < cmd_total && flag_before_cmdID16){
         mission->read_cmd_from_storage(j,cmd);
-        
-        if (flag_before_cmdID16 && cmd.id == 16){ //cmd.id == 16 -> find the firt non rtm waypoint
+
+        if (flag_before_cmdID16 && cmd.id == 1500){ //cmd.id == 1500 -> find the first spraying command
+
+            mission->read_cmd_from_storage(j-1,cmd); // j-1 -> waypoint where start spraying
             latStart = (double)cmd.content.location.lat/(double)10000000;
             lngStart = (double)cmd.content.location.lng/(double)10000000;
             
-            mission->read_cmd_from_storage(j+3,cmd);
+            mission->read_cmd_from_storage(j+2,cmd); // j+2 -> waypoint where stop spraying
             latEnd = (double)cmd.content.location.lat/(double)10000000;
             lngEnd = (double)cmd.content.location.lng/(double)10000000;
             flag_before_cmdID16 = false;
