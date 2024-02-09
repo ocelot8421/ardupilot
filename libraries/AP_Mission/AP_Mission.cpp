@@ -824,7 +824,7 @@ void AP_Mission::RTM(){
 
         for(int i=_cmd_total;i>0;i--){
             read_cmd_from_storage(i,command);
-            write_cmd_to_storage(i+3, command);
+            write_cmd_to_storage(i+4, command);
         }
 
         for(int i=1;i<5;i++){
