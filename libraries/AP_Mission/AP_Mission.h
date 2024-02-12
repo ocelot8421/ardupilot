@@ -745,6 +745,8 @@ private:
     // calculate the location of a resume cmd wp
     bool calc_rewind_pos(Mission_Command& rewind_cmd);
 
+    void send_coords(); //hajni onboarding - refactoring
+
     // update progress made in mission to store last position in the event of mission exit
     void update_exit_position(void);
 

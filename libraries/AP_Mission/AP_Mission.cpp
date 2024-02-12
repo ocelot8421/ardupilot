@@ -553,10 +553,11 @@ void AP_Mission::calculatePoints(){
     //if mission is missing
     if(_cmd_total<4){
         gcs().send_text(MAV_SEVERITY_INFO, "Mission is too short");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);                //TODO make a method instead of repeating lines
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);                //TODO make a method instead of repeating lines
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
     //set pwm based on drone type
@@ -587,29 +588,32 @@ void AP_Mission::calculatePoints(){
     //if we can't get spacing or coverage information
     if(is_space_and_coverage==false){
         gcs().send_text(MAV_SEVERITY_INFO, "Missing spacing and coverage");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
     //check is coverage or space is zero
     if(is_equal((float)space,0.0f) || is_equal((float)cov,0.0f)){
         gcs().send_text(MAV_SEVERITY_INFO, "Space or coverage is zero");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
 
     //if tank empty or in negative
     if(sprayer->liters_left <= 0){
         gcs().send_text(MAV_SEVERITY_INFO, "Tank value is low");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
     //get speed
@@ -629,21 +633,21 @@ void AP_Mission::calculatePoints(){
     //if can't get speed or speed zero
     if(is_speed==false){
         gcs().send_text(MAV_SEVERITY_INFO, "No change speed found!");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
-
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
 
     if(is_equal((float)sprayer->max_speed,0.0f)){
         gcs().send_text(MAV_SEVERITY_INFO, "Speed is zero");
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
-
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
     //check is Liters need is not 0
@@ -696,10 +700,11 @@ void AP_Mission::calculatePoints(){
     //if we can sprayer the entire mission we don't need to calculate
     if(sprayer->remaining_fluid < sprayer->tartaly_liter-0.25){
         gcs().send_message(MSG_ABZ_PLAN_PROGRESS);
-        gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-        gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-        gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-        gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+        // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+        // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+        // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+        send_coords();
         return;
     }
     //find tank empty and returning point
@@ -781,10 +786,11 @@ void AP_Mission::calculatePoints(){
     }
     //send points
     gcs().send_message(MSG_ABZ_PLAN_PROGRESS);
-    gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
-    gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-    gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
-    gcs().send_message(MSG_ABZ_HI_POINT_COR);
+    // gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+    // gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+    // gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+    // gcs().send_message(MSG_ABZ_HI_POINT_COR);
+    send_coords();
     
 }
 /**
@@ -3640,6 +3646,13 @@ bool AP_Mission::calc_rewind_pos(Mission_Command& rewind_cmd)
 
     // if we got this far then mission rewind position was successfully calculated
     return true;
+}
+
+void AP_Mission::send_coords(){
+    gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
+    gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
+    gcs().send_message(MSG_ABZ_LEMON_POINT_COR);
+    gcs().send_message(MSG_ABZ_HI_POINT_COR);
 }
 
 // singleton instance
