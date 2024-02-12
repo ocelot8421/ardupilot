@@ -316,6 +316,7 @@ public:
     void send_abz_drone_version_action() const;
     void send_abz_firmware_version_action() const;
     void send_abz_empty_point_cor_action() const;
+    void send_abz_hi_point_cor_action() const;
     void send_abz_lemon_point_cor_action() const;
     void send_abz_empty_tank_action() const;
 

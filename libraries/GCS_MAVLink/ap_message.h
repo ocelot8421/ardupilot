@@ -96,6 +96,7 @@ enum ap_message : uint8_t {
     MSG_ABZ_FIRMWARE_VERSION,
     MSG_ABZ_LITER_LEFT,
     MSG_ABZ_DRONE_VERSION,
+    MSG_ABZ_HI_POINT_COR,
     MSG_ABZ_LEMON_POINT_COR,
     MSG_LAST // MSG_LAST must be the last entry in this enum
 };
