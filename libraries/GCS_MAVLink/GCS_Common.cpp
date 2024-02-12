@@ -5443,6 +5443,7 @@ void GCS_MAVLINK::send_abz_empty_point_cor_action() const{
  * @brief Sending coordinates of quartering point between #2 and #5 waypoint
  */
 void GCS_MAVLINK::send_abz_hi_point_cor_action() const{
+    const int POINTS_DIFF = 3; // number of command between two waypoint
 
     AP_Mission *mission = AP_Mission::get_singleton();
     ABZ_Sprayer *sprayer = ABZ::get_singleton();
@@ -5462,7 +5463,7 @@ void GCS_MAVLINK::send_abz_hi_point_cor_action() const{
         mission->read_cmd_from_storage(j,cmd);
 
         if (cmd.index == sprayer->returning_point){
-            mission->read_cmd_from_storage(j-3,cmd); // j-1 -> waypoint where start spraying
+            mission->read_cmd_from_storage(j- POINTS_DIFF,cmd); // j-1 -> waypoint where start spraying
             latHi = (double)cmd.content.location.lat/(double)10000000;
             lngHi = (double)cmd.content.location.lng/(double)10000000;
             
@@ -5478,11 +5479,11 @@ void GCS_MAVLINK::send_abz_hi_point_cor_action() const{
  * @brief Sending coordinates of quartering point between #2 and #5 waypoint
  */
 void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
+    const int BEFORE_SPRAYING = 1; // number of command between spraying command and waypoint command
+    const int AFTER_SPRAYING = 2; // number of command between waypoint command and "NOT spraying" command
+
     AP_Mission *mission = AP_Mission::get_singleton();
     ABZ_Sprayer *sprayer = ABZ::get_singleton();
-    // if (mission == nullptr) {
-    //     return;
-    // }
     if (sprayer == nullptr || mission == nullptr) {
         return;
     }
@@ -5502,10 +5503,10 @@ void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
 
         if (flag_before_cmdID1500 && cmd.id == 1500 && cmd.p1){ //cmd.id == 1500 -> find the first spraying command
 
-            mission->read_cmd_from_storage(j-1,cmd); // j-1 -> waypoint where start spraying
+            mission->read_cmd_from_storage(j-BEFORE_SPRAYING,cmd); // j-1 -> waypoint where start spraying
             latStart = (double)cmd.content.location.lat/(double)10000000;
             lngStart = (double)cmd.content.location.lng/(double)10000000;
-            mission->read_cmd_from_storage(j+2,cmd); // j+2 -> waypoint where stop spraying
+            mission->read_cmd_from_storage(j+AFTER_SPRAYING,cmd); // j+2 -> waypoint where stop spraying
             latEnd = (double)cmd.content.location.lat/(double)10000000;
             lngEnd = (double)cmd.content.location.lng/(double)10000000;
 
