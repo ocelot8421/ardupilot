@@ -78,13 +78,13 @@ void AP_Mission::init()
  * \callgraph
  * \callergraph
  * @return true if distance > 1000 meter
- * 
+ *
 */
 // TO DO use the dist of two in function should be in ABZ lib
 bool AP_Mission::waypoint_one_kilometer_away_atleast(){
 
     AP_GPS * gps=AP_GPS::get_singleton();
-    
+
     if(gps==nullptr){
         return false;
     }
@@ -162,8 +162,8 @@ double AP_Mission::get_dist_of_two_points(double latp1,double lngp1,double latp2
 //TO DO ABZ lib
 double AP_Mission::degreesToRadians(double degrees) {
 
-    return degrees * M_PI / 180.0; 
-} 
+    return degrees * M_PI / 180.0;
+}
 /**
  * @brief calculates degree from radian
  * radians: This is the angle in radian you want to convert.
@@ -175,30 +175,30 @@ double AP_Mission::degreesToRadians(double degrees) {
 //TO DO ABZlib
 double AP_Mission::radiansToDegrees(double radians) {
 
-    return radians * 180.0 / M_PI; 
-} 
+    return radians * 180.0 / M_PI;
+}
 /**
- * @brief Calculates the latitude and longitude of a third point (Point 3) given two known points (Point 1 and Point 2) 
+ * @brief Calculates the latitude and longitude of a third point (Point 3) given two known points (Point 1 and Point 2)
  *        and the distance from Point 1 to Point 3 along the great-circle path.
- * 
- * The function determines the position of Point 3, which is located at a specified distance from Point 1 and 
+ *
+ * The function determines the position of Point 3, which is located at a specified distance from Point 1 and
  * in the direction of Point 2 from Point 1.
- * 
+ *
  * Conversion to Radians: Before conducting trigonometric calculations, the given latitudes and longitudes (in degrees) are converted to radians,
  *                        since trigonometric functions operate on radian values.
- * 
+ *
  * Difference in Longitude: The difference in longitudes between the two given points is calculated.
- * 
+ *
  * Bearing Angle (θ): The function calculates the initial bearing or forward azimuth from Point 1 to Point 2.
  *                    This is the angle between the line from Point 1 to the North pole and the line from Point 1 to Point 2.
  *                    The bearing is computed using the atan2 function, which returns the angle between the positive X-axis and the point (x, y), making it suitable for our needs.
- * 
- * Latitude of Point 3: Using the Haversine formula and the calculated bearing, the latitude of Point 3 is computed. 
+ *
+ * Latitude of Point 3: Using the Haversine formula and the calculated bearing, the latitude of Point 3 is computed.
  *                      This involves using the asin function and other trigonometric relations that factor in the distance from Point 1 to Point 3 and the Earth's radius.
- * 
+ *
  * Longitude of Point 3: Similarly, the longitude of Point 3 is calculated using the bearing and the known latitudes.
  *                       This is done using the atan2 function and relationships derived from spherical trigonometry.
- * 
+ *
  * Conversion Back to Degrees: The resulting latitude and longitude of Point 3, obtained in radians, are converted back to degrees for a more interpretable result.
  *
  * @param lat1 Latitude of Point 1 in degrees.
@@ -206,15 +206,15 @@ double AP_Mission::radiansToDegrees(double radians) {
  * @param lat2 Latitude of Point 2 in degrees.
  * @param lon2 Longitude of Point 2 in degrees.
  * @param dist13 Distance from Point 1 to Point 3 in meters.
- * 
- * @return A pair (std::pair) where the first element is the latitude of Point 3 in degrees and 
+ *
+ * @return A pair (std::pair) where the first element is the latitude of Point 3 in degrees and
  *         the second element is the longitude of Point 3 in degrees.
  *
- * @note This function assumes a spherical Earth and uses the Earth's average radius of 6371 kilometers. 
+ * @note This function assumes a spherical Earth and uses the Earth's average radius of 6371 kilometers.
  *       The results might not account for the ellipsoidal shape of the Earth.
  */
 //TO Do Mission item not lat lon, ABZ lib
-std::pair<double,double> AP_Mission::calculatePoint3(double lat1, double lon1, double lat2, double lon2, double dist13) { 
+std::pair<double,double> AP_Mission::calculatePoint3(double lat1, double lon1, double lat2, double lon2, double dist13) {
 
     double EarthRadius =6371000.0;
     double lat3;
@@ -224,21 +224,21 @@ std::pair<double,double> AP_Mission::calculatePoint3(double lat1, double lon1, d
     double lat2_rad = degreesToRadians(lat2);
     double lon2_rad = degreesToRadians(lon2);
     double delta_lon = lon2_rad - lon1_rad;
-    double theta = atan2(sin(delta_lon) * cos(lat2_rad),cos(lat1_rad) * sin(lat2_rad) - sin(lat1_rad) * cos(lat2_rad) * cos(delta_lon));  
-    double lat3_rad = asin(sin(lat1_rad) * cos(dist13 / EarthRadius) +  cos(lat1_rad) * sin(dist13 / EarthRadius) * cos(theta)); 
-    double lon3_rad = lon1_rad + atan2(sin(theta) * sin(dist13 / EarthRadius) * cos(lat1_rad),cos(dist13 / EarthRadius) - sin(lat1_rad) * sin(lat3_rad)); 
-    lat3 = radiansToDegrees(lat3_rad);     
-    lon3 = radiansToDegrees(lon3_rad); 
+    double theta = atan2(sin(delta_lon) * cos(lat2_rad),cos(lat1_rad) * sin(lat2_rad) - sin(lat1_rad) * cos(lat2_rad) * cos(delta_lon));
+    double lat3_rad = asin(sin(lat1_rad) * cos(dist13 / EarthRadius) +  cos(lat1_rad) * sin(dist13 / EarthRadius) * cos(theta));
+    double lon3_rad = lon1_rad + atan2(sin(theta) * sin(dist13 / EarthRadius) * cos(lat1_rad),cos(dist13 / EarthRadius) - sin(lat1_rad) * sin(lat3_rad));
+    lat3 = radiansToDegrees(lat3_rad);
+    lon3 = radiansToDegrees(lon3_rad);
 
     return std::make_pair(lat3,lon3);
 
 }
 /**
  * @brief Calculates the amount of liters required for a mission based on the given mission commands.
- * 
+ *
  * The function estimates the amount of liquid needed for spraying throughout a mission. It processes
- * the mission commands, determines the relevant waypoints that define spray sections, calculates the 
- * distance of these sections, and then multiplies by the coverage and spacing parameters to determine 
+ * the mission commands, determines the relevant waypoints that define spray sections, calculates the
+ * distance of these sections, and then multiplies by the coverage and spacing parameters to determine
  * the total liters required.
  *
  * @note This function assumes a series of conditions:
@@ -246,11 +246,11 @@ std::pair<double,double> AP_Mission::calculatePoint3(double lat1, double lon1, d
  *       - Mission commands have specific IDs that indicate their type.
  *       - The Earth is treated as a sphere for distance calculations.
  *       - If RTM is done to the mission it shifts according
- * 
+ *
  * @warning If the mission commands do not provide the necessary spacing or coverage information,
- *          the function will return early and send a relevant message. Similarly, if the mission 
+ *          the function will return early and send a relevant message. Similarly, if the mission
  *          is deemed too short or if spacing or coverage is zero, the function will report and exit.
- * 
+ *
  * @post After successful execution, the calculated liters needed will be saved to the sprayer's `L_Need`
  *       and a message will be sent with the required liters.
  * @param None
@@ -352,7 +352,7 @@ void AP_Mission::CalculateLiterNeed(){
             meter = meter/10000;
             liter_need += meter*cov;
         }else{}//if p1 is a spraying stop we skip section
-        
+
     }
 
     gcs().send_text(MAV_SEVERITY_INFO, "Liter need: %f",liter_need);
@@ -360,24 +360,24 @@ void AP_Mission::CalculateLiterNeed(){
 }
 /**
  * @brief Calculates the total distance (in meters) of the sections in the mission.
- * 
+ *
  * This function computes the total distance to be covered in a spraying mission by processing the mission
- * commands and determining the waypoints that define a sections. Each section's length is 
+ * commands and determining the waypoints that define a sections. Each section's length is
  * computed and accumulated to give the total distance.
- * 
+ *
  * @note This function assumes a series of conditions:
  *       - The function utilizes a singleton pattern for accessing the sprayer and GPS instances.
- *       - Mission commands are expected to have specific IDs indicating their type. The Earth's 
+ *       - Mission commands are expected to have specific IDs indicating their type. The Earth's
  *       - geometry is assumed to be spherical for distance calculations.
  *       - If RTM is done to the mission it shifts according
- * 
+ *
  * @warning The function will exit early and send a relevant message if:
  *          - The sprayer or GPS singletons cannot be accessed.
  *          - The mission is deemed too short.
- * 
+ *
  * @post After successful execution, the calculated total distance will be saved to the sprayer's `total_meter`
  *       attribute and a message with the total distance in meters will be sent.
- * 
+ *
  * @param None
  * @return None
  */
@@ -420,7 +420,7 @@ void AP_Mission::calculateTotalMeter(){
         return;
     }
     //find first waypoint
-    j = 1+rtm; 
+    j = 1+rtm;
     while (j < _cmd_total){
         read_cmd_from_storage(j,fw);
 
@@ -442,25 +442,25 @@ void AP_Mission::calculateTotalMeter(){
         s1w2_lng=(double)p2.content.location.lng/(double)10000000;
         meter = get_dist_of_two_points(s1w1_lat,s1w1_lng,s1w2_lat,s1w2_lng);
         sprayer->total_meter=sprayer->total_meter+meter;
-        
-        
+
+
     }
     //we will set L-need but now we just print it.
     gcs().send_text(MAV_SEVERITY_INFO, "Total meter: %f",(float)sprayer->total_meter);
-    
-    
+
+
 }
 
 /**
  * @brief Calculates the key points in the mission such as tank empty and returning point.
- * 
+ *
  * This function evaluates the waypoints in the mission, determines where the sprayer's tank
  * will run empty, and decides on the optimal return point based on various conditions
  * such as distance from home, remaining liquid, and speed.
- * 
- * @note This function assumes the mission waypoints are stored in a particular order, 
+ *
+ * @note This function assumes the mission waypoints are stored in a particular order,
  * changspeed,waypoint,sprayer. This structure is crucial for proper calculations since we increment by 3 to jump to the next waypoint.
- * 
+ *
  * Key steps:
  * 1. Initialization of key objects like sprayer, GPS, and mission commands.
  * 2. Reading home location and potential RTM (Return To Mission) shifts.
@@ -472,13 +472,13 @@ void AP_Mission::calculateTotalMeter(){
  *     - If not, calculating the point where the tank will run empty.
  *     - Determining the optimal return point based on distances.
  * 6. Sending key points and progress messages to the ground control station.
- * 
- * @warning This function heavily relies on the mission structure and waypoint commands. 
+ *
+ * @warning This function heavily relies on the mission structure and waypoint commands.
  * Changes in waypoint structure or command IDs can break the calculations.
- * 
+ *
  * @param None
  * @return None
- * 
+ *
  * @see read_cmd_from_storage(), get_dist_of_two_points(), calculatePoint3()
  */
 //TO Do make sub functions and ABZ lib
@@ -497,7 +497,7 @@ void AP_Mission::calculatePoints(){
     {
         return;
     }
-    
+
     calculateTotalMeter();
     //declare mission commands
     Mission_Command fw;
@@ -580,7 +580,7 @@ void AP_Mission::calculatePoints(){
 
         j = j+1;
     }
-    
+
     //if we can't get spacing or coverage information
     if(is_space_and_coverage==false){
         gcs().send_text(MAV_SEVERITY_INFO, "Missing spacing and coverage");
@@ -603,7 +603,7 @@ void AP_Mission::calculatePoints(){
     //get speed
     j = 1+rtm;
     while(j<_cmd_total){
-        
+
         read_cmd_from_storage(j,speed);
 
         if (speed.id == 178){
@@ -636,7 +636,7 @@ void AP_Mission::calculatePoints(){
     }
     //check is tank capacity is not 0
     TL = sprayer->tartaly_liter;
-    
+
     if(is_equal(TL,0.0f) == false){
         sprayer->remaining_fluid = sprayer->L_Need-sprayer->T_sprayed;
         sprayer->remaining_starts = sprayer->remaining_fluid/sprayer->tartaly_liter;
@@ -684,8 +684,8 @@ void AP_Mission::calculatePoints(){
 
         //read start point(p1),read sprayer for start point(sp), read end point(p2)
         read_cmd_from_storage(i,p1);
-        read_cmd_from_storage(i+1,sp);   
-        
+        read_cmd_from_storage(i+1,sp);
+
         //if we are at the last point we sprayed everything. last point is the return point
         if (i+3 >= _cmd_total){
             w1_lat=(double)p1.content.location.lat/(double)10000000;
@@ -727,7 +727,7 @@ void AP_Mission::calculatePoints(){
             if(progress_percent<1.0){
                 //find tank empty point distance from p1
                 dist13 = meter*progress_percent;
-                //determine lat and lng of tank empty point in the p1-p2 line 
+                //determine lat and lng of tank empty point in the p1-p2 line
                 point3 = calculatePoint3(w1_lat, w1_lng, w2_lat, w2_lng, dist13);
                 //if p2 is closer than we should spray until tank is empty. return = tank empty
                 if(d2<d1){
@@ -742,7 +742,7 @@ void AP_Mission::calculatePoints(){
                     sprayer->rlng=w1_lng;
                     sprayer->tlat=point3.first;
                     sprayer->tlng=point3.second;
-                    sprayer->returning_point = i;  
+                    sprayer->returning_point = i;
                 }
                 //found point let's stop
                 break;
@@ -754,23 +754,23 @@ void AP_Mission::calculatePoints(){
             }
 
         }//if p1 is stop spraying we just skip the section
-        
+
     }
     //send points
     gcs().send_message(MSG_ABZ_PLAN_PROGRESS);
     send_coords();
-    
+
 }
 /**
  * @brief Handle Return To Mission (RTM) operation.
  *
  * This function checks if the RTM operation is enabled and is not done previously.
  * If the conditions are met, it modifies the mission commands to include RTM functionality.
- * The primary objective is to set intermediate waypoints and change speed for the UAV 
+ * The primary objective is to set intermediate waypoints and change speed for the UAV
  * to return to its mission after certain conditions are met.
  *
  * @note The RTM is based on the UAV's current GPS location, a predetermined altitude,
- *       and the target speed (from the sprayer module). The function re-arranges the mission commands 
+ *       and the target speed (from the sprayer module). The function re-arranges the mission commands
  *       to include these new instructions and then saves the updated total number of commands.
  *
  * @pre A valid instance of `ABZ_Sprayer` and `AP_GPS` should be available.
@@ -818,7 +818,7 @@ void AP_Mission::RTM(){
             write_cmd_to_storage(i ,temp_command);
         }
 
-        
+
         read_cmd_from_storage(6,first_waypoint);
         cmd.id = MAV_CMD_NAV_WAYPOINT;
         cmd.content.location.lat=gps->location().lat;
@@ -839,6 +839,84 @@ void AP_Mission::RTM(){
         gcs().send_message(MSG_ABZ_UPDATE_MISSION);
     }
 }
+
+
+void AP_Mission::insert_new_missionPoint(){
+
+    ABZ_Sprayer * sprayer = ABZ::get_singleton();
+    AP_Mission *mission = AP_Mission::get_singleton();
+    if (sprayer==nullptr || mission == nullptr) {
+        return;
+    }
+    
+    // start of first spraying section
+    AP_Mission::Mission_Command start_lemon_changedSpeed;   // cmd.id = 178     -> cmd.type() = changedSpeed
+    AP_Mission::Mission_Command start_lemon_WP;             // cmd.id = 16      -> cmd.type() = WP
+    AP_Mission::Mission_Command start_lemon_ABZSprayer;     // cmd.id = 1500    -> cmd.type() = ABZSprayer
+    // at 75% between start and end spraying point
+    AP_Mission::Mission_Command actual_lemon_changedSpeed;
+    AP_Mission::Mission_Command actual_lemon_WP;
+    AP_Mission::Mission_Command actual_lemon_ABZSprayer;
+    // end of first spraying section
+    AP_Mission::Mission_Command end_lemon_changedSpeed;
+    AP_Mission::Mission_Command end_lemon_WP;
+    AP_Mission::Mission_Command end_lemon_ABZSprayer;
+    // how many loops...
+    // const int STEPS_FROM_CHSPEED_TO_ABZSp = 2;              // ...from ChnagedSpeed cmd to ABZSprayer cmd
+    // const int STEPS_FROM_WP_TO_ABZSp = 1;                   // ...from WP cmd to ABZSprayer cmd
+    // int GAP = 3;                                            // ...between two ABZSprayer commands
+
+    
+
+    // gets the start and final point of first spraying section (start_lemon)
+    AP_Mission::Mission_Command cmd;
+    bool flag_first_cmdID1500 = true;                      // after finding the first ABZSpray cmd it changes to false.
+    int cmd_total = mission->num_commands();
+    gcs().send_text(MAV_SEVERITY_ALERT, "cmd_total: %i, %d", cmd_total, flag_first_cmdID1500);
+    // int j = 1;
+    // while (j < cmd_total && flag_first_cmdID1500){
+        // mission->read_cmd_from_storage(j,cmd);
+        // if (flag_first_cmdID1500 && cmd.id == 1500 && cmd.p1){ //cmd.id == 1500 -> find the first spraying cmd
+        //     // start
+        //     start_lemon_ABZSprayer = cmd;
+        //     mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp,start_lemon_WP);
+        //     mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp,start_lemon_changedSpeed);
+        //     // end
+        //     mission->read_cmd_from_storage(j + GAP,end_lemon_ABZSprayer);
+        //     mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp + GAP,end_lemon_WP);
+        //     mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp + GAP,end_lemon_changedSpeed);
+
+        //     flag_first_cmdID1500 = false;
+        // }
+    // }
+
+    // AP_Mission::Mission_Command cmdPeek;
+    // while (j < cmd_total){
+    //     mission->read_cmd_from_storage(j, cmdPeek);
+    //     gcs().send_text(MAV_SEVERITY_INFO, "bfr - idxs: %i,(%d,%d)", cmdPeek.index, cmdPeek.content.location.lat, cmdPeek.content.location.lng);
+    //     j++;
+    // }
+
+    // // makes room for the new commands of new point
+    // for (int i = (cmd_total + GAP); i > start_lemon_ABZSprayer.index; i--){
+
+    //     mission->read_cmd_from_storage(i,cmd);
+    //     mission->write_cmd_to_storage(i+GAP,cmd);
+    // }
+
+    // cmd_total = mission->num_commands();
+    // int k = 1;
+    // while (k < cmd_total){
+    //     mission->read_cmd_from_storage(k, cmdPeek);
+    //     gcs().send_text(MAV_SEVERITY_INFO, "aftr - idxs: %i,(%d,%d)", cmdPeek.index, cmdPeek.content.location.lat, cmdPeek.content.location.lng);
+    //     k++;
+    // }
+
+    
+    
+}
+
+
 /**
  * @brief Starts the mission process.
  *
@@ -846,16 +924,16 @@ void AP_Mission::RTM(){
  * and prepares the mission by advancing to the first navigation command. It also calculates certain
  * points for the mission and sends a message indicating the mission's progress. Runs when copter turned to auto mode.
  * It calls RTM and calculatePoints() also sets the tartaly_liter and round sprayed.
- * 
+ *
  * @pre Assumes that the singletons for AP_GPS and ABZ_Sprayer have been properly instantiated.
- * 
+ *
  * @post If successful, the mission state is set to MISSION_RUNNING. If there's a failure in advancing
  *       the navigation command, the mission is marked as complete.
  *
  * @note This function returns early if either the GPS or sprayer singletons are not available.
  * @param None
  * @return None
- * 
+ *
  * @see RTM(),calculatePoints()
  */
 void AP_Mission::start(){
@@ -870,10 +948,13 @@ void AP_Mission::start(){
     {
         return;
     }
-    
+
     sprayer->tartaly_liter = sprayer->liters_left; /*the liquid in the tank equals the liquid left in the tank. */
     sprayer->round_sprayed = 0.0; /*New start means new spraying round make sprayed in rround zero*/
     RTM();
+    gcs().send_text(MAV_SEVERITY_INFO, " @--,-,,--'---- ");
+    insert_new_missionPoint();
+
     //sending info
     _flags.state = MISSION_RUNNING;
     sprayer->SetSpraying_speed_adaptive(false);
@@ -899,12 +980,12 @@ void AP_Mission::start(){
  *
  * @pre Assumes the singletons for AP_GPS, ABZ_Sprayer, and AP_Mission have been properly instantiated.
  *
- * @post The mission state is updated to MISSION_STOPPED. Messages are sent to notify about the 
+ * @post The mission state is updated to MISSION_STOPPED. Messages are sent to notify about the
  *       mission's and sprayer's status. Based on the configurations and states, mission commands
  *       may be adjusted or updated, and points for the mission might be recalculated.
  *
  * @note This function has multiple return points based on the availability of certain singletons.
- *       Additionally, it handles cases both when the "return to mission" feature is enabled and 
+ *       Additionally, it handles cases both when the "return to mission" feature is enabled and
  *       when it is not.
  */
 void AP_Mission::stop()
@@ -916,7 +997,7 @@ void AP_Mission::stop()
     if (mission == nullptr){
         return;
     }
-   
+
     ABZ_Sprayer * sprayer = ABZ::get_singleton();
     if(sprayer==nullptr){
         return;
@@ -935,14 +1016,14 @@ void AP_Mission::stop()
    if(sprayer->getReturn_To_Mission_Like_Rtl())
     {
         isRTMDone = false;
-       
+
         if(_nav_cmd.index!=AP_MISSION_CMD_INDEX_NONE)
         {
-           
+
             if(_nav_cmd.index<8)
             {
-                
-                
+
+
                 int j=1;
                 for (int i=5;i<_cmd_total;i++)
                 {
@@ -951,7 +1032,7 @@ void AP_Mission::stop()
                      write_cmd_to_storage(j ,cmd);
                      j++;
 
-                
+
                 }
                 changed=true;
                 _cmd_total.set_and_save(j);
@@ -981,24 +1062,24 @@ void AP_Mission::stop()
                 }
             }
         }
-        
+
         write_cmd_to_storage(1,changespeed);
         write_cmd_to_storage(2, _prev_nav_cmd);
 
         int cmd_total_local=2;
-        for(int i=_prev_nav_cmd_index+1;i<_cmd_total;i++) 
+        for(int i=_prev_nav_cmd_index+1;i<_cmd_total;i++)
         {
             Mission_Command cmd;
-            
+
             read_cmd_from_storage(i,cmd);
             write_cmd_to_storage(cmd_total_local+1, cmd);
 
-        
+
             cmd_total_local++;
-        
+
         }
-        
-        
+
+
         _cmd_total.set_and_save(cmd_total_local+1);
         }
     }
@@ -1113,7 +1194,7 @@ bool AP_Mission::starts_with_takeoff_cmd()
 /*
     return true if MIS_OPTIONS is set to allow continue of mission
     logic after a land and the next waypoint is a takeoff. If this
-    is false then after a landing is complete the vehicle should 
+    is false then after a landing is complete the vehicle should
     disarm and mission logic should stop
 */
 bool AP_Mission::continue_after_land_check_for_takeoff()
@@ -1721,7 +1802,7 @@ bool AP_Mission::stored_in_location(uint16_t id)
  * This is a basic function. It takes an index ad a Mission command variable.
  * Writes the mission item to the given index.
  * @param index is the index of the  mission item in the command storage
- * @param cmd is the Missioon commmand type variable that holds the mmission item data 
+ * @param cmd is the Missioon commmand type variable that holds the mmission item data
  * @return True on succes
 */
 bool AP_Mission::write_cmd_to_storage(uint16_t index, const Mission_Command& cmd)
@@ -2173,7 +2254,7 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 
          gcs().send_text(MAV_SEVERITY_INFO,"content spacing:%f", cmd.content.sprayer.spacing);
         gcs().send_text(MAV_SEVERITY_INFO,"param coverage:%f", packet.param3 );*/
-       
+
         break;
     default:
         // unrecognised command
@@ -2755,7 +2836,7 @@ void AP_Mission::complete()
     gcs().send_text(MAV_SEVERITY_INFO, "Spraying: OFF");
     //gcs().send_message(MSG_ABZ_IS_RETURN_POINT);
 
-   
+
     // callback to main program's mission complete function
     _mission_complete_fn();
 }
@@ -2808,7 +2889,7 @@ bool AP_Mission::advance_current_nav_cmd(uint16_t starting_index)
             _prev_nav_cmd_id = _nav_cmd.id;
             _prev_nav_cmd_index = _nav_cmd.index;
             _prev_nav_cmd=_nav_cmd;
-            
+
             ABZ_Sprayer * sprayer = ABZ::get_singleton();
             if(sprayer==nullptr)
             {
@@ -3514,7 +3595,7 @@ void AP_Mission::reset_wp_history(void)
 }
 /**
  * @brief sets and save mission iteems in cmd. Give the number of items you want to save usually it's the
- *         length of the cmd if you added then len cmd +  len added 
+ *         length of the cmd if you added then len cmd +  len added
 */
 void AP_Mission::setSave(int number){
     _cmd_total.set_and_save(number);
