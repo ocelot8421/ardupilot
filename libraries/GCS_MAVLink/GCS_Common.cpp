@@ -62,6 +62,10 @@
 
 #include <stdio.h>
 
+//hajni onboarding
+#include <iostream>
+#include <string>
+
 #if HAL_RCINPUT_WITH_AP_RADIO
 #include <AP_Radio/AP_Radio.h>
 #include <AP_BoardConfig/AP_BoardConfig.h>
@@ -5479,45 +5483,61 @@ void GCS_MAVLINK::send_abz_hi_point_cor_action() const{
  * @brief Sending coordinates of quartering point between #2 and #5 waypoint
  */
 void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
-    const int BEFORE_SPRAYING = 1; // number of command between spraying command and waypoint command
-    const int AFTER_SPRAYING = 2; // number of command between waypoint command and "NOT spraying" command
+    // const int PREVEOUS_POINT = 1; // number of command between spraying command and waypoint command
+    // const int NEXT_POINT = 5; // number of command between waypoint command and "NOT spraying" command
+    // const int ratio_distence = 0.75;
 
     AP_Mission *mission = AP_Mission::get_singleton();
-    ABZ_Sprayer *sprayer = ABZ::get_singleton();
-    if (sprayer == nullptr || mission == nullptr) {
+    if (mission == nullptr) {
         return;
     }
 
     AP_Mission::Mission_Command cmd;
     int cmd_total = mission->num_commands();
     int j = 1;
+    
+   
 
-    float latStart = -1, lngStart = -1;
-    float latEnd = -1,   lngEnd = -1;
+    // float latStart = -1, lngStart = -1;
+    // float latEnd = -1,   lngEnd = -1;
     float latL = -1,     lngL = -1;
 
-    bool flag_before_cmdID1500 = true;
+    // bool flag_before_cmdID1500 = true;
+    // while (j < cmd_total && flag_before_cmdID1500){
+    //     mission->read_cmd_from_storage(j,cmd);
 
-    while (j < cmd_total && flag_before_cmdID1500){
+    //     if (flag_before_cmdID1500 && cmd.id == 1500 && cmd.p1){ //cmd.id == 1500 -> find the first spraying command
+
+    //         mission->read_cmd_from_storage(j-PREVEOUS_POINT,cmd); // j-1 -> waypoint where start spraying
+    //         latStart = (double)cmd.content.location.lat/(double)10000000;
+    //         lngStart = (double)cmd.content.location.lng/(double)10000000;
+
+    //         mission->read_cmd_from_storage(j+NEXT_POINT,cmd); // j+5 -> waypoint where stop spraying
+    //         latEnd = (double)cmd.content.location.lat/(double)10000000;
+    //         lngEnd = (double)cmd.content.location.lng/(double)10000000;
+
+    //         flag_before_cmdID1500 = false;
+    //     }
+    //     j = j+1;     
+    // }
+    // latL = latStart + ratio_distence * (latEnd - latStart);
+    // lngL = lngStart + ratio_distence * (lngEnd - lngStart);
+
+    bool is_found_first = false;
+
+    gcs().send_text(MAV_SEVERITY_ALERT, "is_-inserted: %d -.-.-.-.-.-", mission->is_inserted_new_point);
+     while (j < cmd_total && is_found_first){
         mission->read_cmd_from_storage(j,cmd);
-
-        if (flag_before_cmdID1500 && cmd.id == 1500 && cmd.p1){ //cmd.id == 1500 -> find the first spraying command
-
-            mission->read_cmd_from_storage(j-BEFORE_SPRAYING,cmd); // j-1 -> waypoint where start spraying
-            latStart = (double)cmd.content.location.lat/(double)10000000;
-            lngStart = (double)cmd.content.location.lng/(double)10000000;
-            mission->read_cmd_from_storage(j+AFTER_SPRAYING,cmd); // j+2 -> waypoint where stop spraying
-            latEnd = (double)cmd.content.location.lat/(double)10000000;
-            lngEnd = (double)cmd.content.location.lng/(double)10000000;
-
-            flag_before_cmdID1500 = false;
+        if(cmd.index == 5 && !mission->is_inserted_new_point){
+            latL = (double)cmd.content.location.lat/(double)10000000;
+            lngL = (double)cmd.content.location.lng/(double)10000000;
+            is_found_first = false;
         }
-        j = j+1;     
-    }
-    latL = latStart + 0.75 * (latEnd - latStart);
-    lngL = lngStart + 0.75 * (lngEnd - lngStart);
+        j++;
+     }
     
     mavlink_msg_abz_lemon_point_cor_send(chan,latL,lngL);
+
 }
 
 /**
