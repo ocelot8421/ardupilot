@@ -657,7 +657,7 @@ public:
     void calculatePoints();
     void calculatePoints2();
     void RTM();
-    void insert_new_missionPoint(); //hajni
+    void insert_new_missionPoint();     //hajni
     bool is_inserted_new_point = false; //hajni onboarding, true after new point inserted
     void CalculateLiterNeed();
     void calculateTotalMeter();

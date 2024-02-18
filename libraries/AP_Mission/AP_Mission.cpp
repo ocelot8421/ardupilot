@@ -59,6 +59,10 @@ void AP_Mission::init()
     // initialize the jump tracking array
     init_jump_tracking();
 
+    // hajni onboarding
+    // is_inserted_new_point = false;
+    // insert_new_missionPoint();
+
     // If Mission Clear bit is set then it should clear the mission, otherwise retain the mission.
     if (AP_MISSION_MASK_MISSION_CLEAR & _options)
     {
@@ -919,17 +923,17 @@ void AP_Mission::insert_new_missionPoint()
     if (!is_inserted_new_point)
     {
         // start of first spraying section
-        AP_Mission::Mission_Command start_lemon_changedSpeed; // cmd.id = 178     -> cmd.type() = changedSpeed
-        AP_Mission::Mission_Command start_lemon_WP;           // cmd.id = 16      -> cmd.type() = WP
-        AP_Mission::Mission_Command start_lemon_ABZSprayer;   // cmd.id = 1500    -> cmd.type() = ABZSprayer
+        AP_Mission::Mission_Command start_changedSpeed; // cmd.id = 178     -> cmd.type() = changedSpeed
+        AP_Mission::Mission_Command start_WP;           // cmd.id = 16      -> cmd.type() = WP
+        AP_Mission::Mission_Command start_ABZSprayer;   // cmd.id = 1500    -> cmd.type() = ABZSprayer
         // at 75% between start and end spraying point
-        AP_Mission::Mission_Command actual_lemon_changedSpeed;
-        AP_Mission::Mission_Command actual_lemon_WP;
-        AP_Mission::Mission_Command actual_lemon_ABZSprayer;
+        AP_Mission::Mission_Command actual_changedSpeed;
+        AP_Mission::Mission_Command actual_WP;
+        AP_Mission::Mission_Command actual_ABZSprayer;
         // end of first spraying section
-        AP_Mission::Mission_Command end_lemon_changedSpeed;
-        AP_Mission::Mission_Command end_lemon_WP;
-        AP_Mission::Mission_Command end_lemon_ABZSprayer;
+        AP_Mission::Mission_Command end_changedSpeed;
+        AP_Mission::Mission_Command end_WP;
+        AP_Mission::Mission_Command end_ABZSprayer;
         // how many loops...
         const int STEPS_FROM_CHSPEED_TO_ABZSp = 2; // ...from ChnagedSpeed cmd to ABZSprayer cmd
         const int STEPS_FROM_WP_TO_ABZSp = 1;      // ...from WP cmd to ABZSprayer cmd
@@ -946,13 +950,13 @@ void AP_Mission::insert_new_missionPoint()
             if (flag_first_cmdID1500 && cmd.id == 1500 && cmd.p1)
             { // cmd.id == 1500 -> find the first spraying cmd
                 // start
-                start_lemon_ABZSprayer = cmd;
-                mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp, start_lemon_WP);
-                mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp, start_lemon_changedSpeed);
+                start_ABZSprayer = cmd;
+                mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp, start_WP);
+                mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp, start_changedSpeed);
                 // end
-                mission->read_cmd_from_storage(j + GAP, end_lemon_ABZSprayer);
-                mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp + GAP, end_lemon_WP);
-                mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp + GAP, end_lemon_changedSpeed);
+                mission->read_cmd_from_storage(j + GAP, end_ABZSprayer);
+                mission->read_cmd_from_storage(j - STEPS_FROM_WP_TO_ABZSp + GAP, end_WP);
+                mission->read_cmd_from_storage(j - STEPS_FROM_CHSPEED_TO_ABZSp + GAP, end_changedSpeed);
 
                 flag_first_cmdID1500 = false;
             }
@@ -963,49 +967,37 @@ void AP_Mission::insert_new_missionPoint()
         _cmd_total.set_and_save(new_cmd_total);
 
         // makes room for the new commands of new point
-        for (int i = cmd_total; i > start_lemon_ABZSprayer.index; i--)
+        for (int i = cmd_total; i > start_ABZSprayer.index; i--)
         {
             mission->read_cmd_from_storage(i, cmd);
             mission->write_cmd_to_storage(i + GAP, cmd);
         }
 
+        actual_WP = start_WP;
+
         // alt
-        actual_lemon_WP = start_lemon_WP;
-        int32_t new_alt = actual_lemon_WP.content.location.alt; // just for readability -> TODO at lat, lng + refactor
+        int32_t new_alt = actual_WP.content.location.alt;
         new_alt = new_alt < 100 ? 100 : new_alt / 2;
-        actual_lemon_WP.content.location.alt = new_alt;
+        actual_WP.content.location.alt = new_alt;
 
-        // latitude
-        actual_lemon_WP.content.location.lat =
-            start_lemon_WP.content.location.lat +
-            (end_lemon_WP.content.location.lat - start_lemon_WP.content.location.lat) * 0.75;
-
-        // longitude
-        actual_lemon_WP.content.location.lng =
-            start_lemon_WP.content.location.lng +
-            (end_lemon_WP.content.location.lng - start_lemon_WP.content.location.lng) * 0.75;
+        // latitude and longitude - new WP
+        Location start_loc = start_WP.content.location;
+        Location end_loc = end_WP.content.location;
+        actual_WP.content.location.lat = start_loc.lat + (end_loc.lat - start_loc.lat) * 0.75;
+        actual_WP.content.location.lng = start_loc.lng + (end_loc.lng - start_loc.lng) * 0.75;
 
         // speed and sprayer
-        actual_lemon_changedSpeed = start_lemon_changedSpeed;
-        actual_lemon_ABZSprayer = start_lemon_ABZSprayer;
+        actual_changedSpeed = start_changedSpeed;
+        actual_ABZSprayer = start_ABZSprayer;
 
         // add changes to the indexed new point
-        mission->write_cmd_to_storage(start_lemon_WP.index + GAP, actual_lemon_WP);
-        mission->write_cmd_to_storage(start_lemon_changedSpeed.index + GAP, actual_lemon_changedSpeed);
-        mission->write_cmd_to_storage(start_lemon_ABZSprayer.index + GAP, actual_lemon_ABZSprayer);
+        mission->write_cmd_to_storage(start_WP.index + GAP, actual_WP);
+        mission->write_cmd_to_storage(start_changedSpeed.index + GAP, actual_changedSpeed);
+        mission->write_cmd_to_storage(start_ABZSprayer.index + GAP, actual_ABZSprayer);
 
         // inserts only once - boolean
-
         is_inserted_new_point = true;
         gcs().send_message(MSG_ABZ_UPDATE_MISSION);
-
-        // // print for debug
-        // AP_Mission::Mission_Command peek;
-        // for (int i = 2; i <= 5; i += 3)
-        // {
-        //     mission->read_cmd_from_storage(i, peek);
-        //     gcs().send_text(MAV_SEVERITY_ALERT, "i: %i, index: %i, %s, %i, %i", i, peek.index, peek.type(), peek.content.location.lat, peek.content.location.lng);
-        // }
     }
 }
 
@@ -1045,7 +1037,8 @@ void AP_Mission::start()
     sprayer->tartaly_liter = sprayer->liters_left; /*the liquid in the tank equals the liquid left in the tank. */
     sprayer->round_sprayed = 0.0;                  /*New start means new spraying round make sprayed in rround zero*/
     RTM();
-    gcs().send_text(MAV_SEVERITY_INFO, " @--,-,,--'---- ");
+
+    // is_inserted_new_point = false; // hajni onboardingg
     insert_new_missionPoint();
 
     // sending info
@@ -1184,6 +1177,10 @@ void AP_Mission::stop()
     gcs().send_message(MSG_ABZ_UPDATE_MISSION);
 
     reset();
+
+    //hajni onboarding
+    // is_inserted_new_point = false;
+
     calculatePoints();
 }
 /// resume - continues the mission execution from where we last left off
@@ -1371,6 +1368,9 @@ bool AP_Mission::clear()
     _flags.nav_cmd_loaded = false;
     _flags.do_cmd_loaded = false;
 
+    //hajni onboarding
+    is_inserted_new_point = false;
+
     // return success
     return true;
 }
@@ -1396,6 +1396,9 @@ void AP_Mission::update()
     }
 
     update_exit_position();
+
+    // is_inserted_new_point = false;  //hajni onboarding
+    // insert_new_missionPoint();
 
     // save persistent waypoint_num for watchdog restore
     hal.util->persistent_data.waypoint_num = _nav_cmd.index;
@@ -2131,7 +2134,7 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
           we can do this properly
          */
 #if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
-        // acceptance radius in meters and pass by distance in meters
+      // acceptance radius in meters and pass by distance in meters
         uint16_t acp = packet.param2;    // param 2 is acceptance radius in meters is held in low p1
         uint16_t passby = packet.param3; // param 3 is pass by distance in meters is held in high p1
 
@@ -2141,7 +2144,7 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 
         cmd.p1 = (passby << 8) | (acp & 0x00FF);
 #else
-        // delay at waypoint in seconds (this is for copters???)
+      // delay at waypoint in seconds (this is for copters???)
         cmd.p1 = packet.param1;
 #endif
     }
@@ -2464,7 +2467,6 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
     // copy location from mavlink to command
     if (stored_in_location(cmd.id))
     {
-
         // sanity check location
         if (!check_lat(packet.x))
         {
@@ -3039,7 +3041,7 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command &c
 void AP_Mission::complete()
 {
     isRTMDone = false;
-    
+
     // flag mission as complete
     _flags.state = MISSION_COMPLETE;
     //_flags.state = MISSION_STOPPED;
@@ -4040,11 +4042,12 @@ bool AP_Mission::calc_rewind_pos(Mission_Command &rewind_cmd)
     return true;
 }
 
+// hajni onboarding
 void AP_Mission::send_coords()
 {
     gcs().send_message(MSG_ABZ_RETURNING_POINT_COR);
     gcs().send_message(MSG_ABZ_EMPTY_POINT_COR);
-    gcs().send_message(MSG_ABZ_LEMON_POINT_COR); //hajni onboarding - pwm and alt changes
+    gcs().send_message(MSG_ABZ_LEMON_POINT_COR); // hajni onboarding - pwm and alt changes
     gcs().send_message(MSG_ABZ_HI_POINT_COR);
 }
 

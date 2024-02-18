@@ -5525,7 +5525,7 @@ void GCS_MAVLINK::send_abz_lemon_point_cor_action() const{
 
     bool is_found_first = false;
 
-    gcs().send_text(MAV_SEVERITY_ALERT, "is_-inserted: %d -.-.-.-.-.-", mission->is_inserted_new_point);
+    gcs().send_text(MAV_SEVERITY_ALERT, "lemon_cor - is_inserted: %d -.-.-.-.-.-", mission->is_inserted_new_point);
      while (j < cmd_total && is_found_first){
         mission->read_cmd_from_storage(j,cmd);
         if(cmd.index == 5 && !mission->is_inserted_new_point){
